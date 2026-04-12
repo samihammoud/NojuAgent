@@ -2,16 +2,20 @@ import { useEffect, useRef, useState } from "react";
 import { getWebContainer } from "../lib/webcontainer";
 import { previewFiles } from "../lib/previewFiles";
 
+interface Props {
+  refreshKey: number;
+}
+
 type Status =
   | { type: "booting" }
   | { type: "starting" }
   | { type: "ready"; url: string }
   | { type: "error"; message: string };
 
-export default function Preview() {
+export default function Preview({ refreshKey }: Props) {
   const [status, setStatus] = useState<Status>({ type: "booting" });
-  const [url, setUrl] = useState("");
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const urlRef = useRef("");
 
   useEffect(() => {
     let cancelled = false;
@@ -30,7 +34,7 @@ export default function Preview() {
 
         wc.on("server-ready", (_port, serverUrl) => {
           if (cancelled) return;
-          setUrl(serverUrl);
+          urlRef.current = serverUrl;
           setStatus({ type: "ready", url: serverUrl });
         });
       } catch (err) {
@@ -46,11 +50,20 @@ export default function Preview() {
     };
   }, []);
 
+  // Reload iframe whenever the agent writes new files
+  useEffect(() => {
+    if (refreshKey > 0 && iframeRef.current && urlRef.current) {
+      iframeRef.current.src = urlRef.current;
+    }
+  }, [refreshKey]);
+
   const displayUrl =
-    status.type === "ready" ? url.replace(/\/$/, "") : "localhost:3000";
+    status.type === "ready"
+      ? status.url.replace(/\/$/, "")
+      : "localhost:3000";
 
   return (
-    <div className="preview">
+    <div className="preview" style={{ width: "100%" }}>
       {/* Browser chrome */}
       <div className="browser-chrome">
         <div className="browser-dots">
@@ -70,8 +83,8 @@ export default function Preview() {
         <div
           className="browser-actions"
           onClick={() => {
-            if (iframeRef.current && status.type === "ready") {
-              iframeRef.current.src = url;
+            if (iframeRef.current && urlRef.current) {
+              iframeRef.current.src = urlRef.current;
             }
           }}
           title="Reload"
@@ -85,10 +98,9 @@ export default function Preview() {
 
       {/* Content */}
       <div className="preview-canvas">
-        {/* Iframe — always mounted so WebContainer can bind to it; hidden until ready */}
         <iframe
           ref={iframeRef}
-          src={status.type === "ready" ? url : "about:blank"}
+          src={status.type === "ready" ? status.url : "about:blank"}
           className="preview-iframe"
           style={{ display: status.type === "ready" ? "block" : "none" }}
           allow="cross-origin-isolated"

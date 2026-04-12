@@ -4,7 +4,12 @@ import Preview from "./Preview";
 
 type Tab = "code" | "preview";
 
-export default function WorkspacePanel() {
+interface Props {
+  indexHtml: string | null;
+  previewRefreshKey: number;
+}
+
+export default function WorkspacePanel({ indexHtml, previewRefreshKey }: Props) {
   const [tab, setTab] = useState<Tab>("code");
 
   return (
@@ -32,8 +37,14 @@ export default function WorkspacePanel() {
         </button>
       </div>
 
-      <div className="workspace-content">
-        {tab === "code" ? <CodeEditor /> : <Preview />}
+      <div className="workspace-content" style={{ position: "relative" }}>
+        {/* Both panels stay mounted so WebContainer keeps running */}
+        <div style={{ display: tab === "code" ? "flex" : "none", height: "100%" }}>
+          <CodeEditor content={indexHtml} />
+        </div>
+        <div style={{ display: tab === "preview" ? "flex" : "none", height: "100%" }}>
+          <Preview refreshKey={previewRefreshKey} />
+        </div>
       </div>
     </section>
   );

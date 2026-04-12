@@ -1,64 +1,28 @@
-import { useState, useRef, useEffect } from "react";
+import { useEffect, useRef } from "react";
+import type { ChatMessage } from "../lib/useAgent";
 
-interface Message {
-  id: number;
-  role: "user" | "assistant";
-  content: string;
+interface Props {
+  messages: ChatMessage[];
+  onSend: (content: string) => void;
+  isConnected: boolean;
 }
 
-const INITIAL_MESSAGES: Message[] = [
-  {
-    id: 1,
-    role: "assistant",
-    content:
-      "Hi! I'm Noju. Describe what you'd like to build and I'll generate it for you.",
-  },
-  {
-    id: 2,
-    role: "user",
-    content: "Build me a simple todo app with a clean design.",
-  },
-  {
-    id: 3,
-    role: "assistant",
-    content:
-      "Sure! I've generated a todo app with add and delete functionality. You can see the code on the right — switch to Preview to see it rendered live.",
-  },
-];
-
-export default function Chat() {
-  const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES);
-  const [input, setInput] = useState("");
+export default function Chat({ messages, onSend, isConnected }: Props) {
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   function handleSend() {
-    const trimmed = input.trim();
+    const trimmed = inputRef.current?.value.trim();
     if (!trimmed) return;
-
-    const userMsg: Message = {
-      id: Date.now(),
-      role: "user",
-      content: trimmed,
-    };
-    setMessages((prev) => [...prev, userMsg]);
-    setInput("");
-
-    // Placeholder response
-    setTimeout(() => {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now() + 1,
-          role: "assistant",
-          content: "Got it — updating the code now...",
-        },
-      ]);
-    }, 600);
+    onSend(trimmed);
+    if (inputRef.current) {
+      inputRef.current.value = "";
+      inputRef.current.style.height = "auto";
+    }
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -68,14 +32,10 @@ export default function Chat() {
     }
   }
 
-  // Auto-resize textarea
   function handleInput(e: React.ChangeEvent<HTMLTextAreaElement>) {
-    setInput(e.target.value);
-    const el = textareaRef.current;
-    if (el) {
-      el.style.height = "auto";
-      el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
-    }
+    const el = e.target;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
   }
 
   return (
@@ -96,7 +56,20 @@ export default function Chat() {
                 </svg>
               </div>
             )}
-            <div className="message-bubble">{msg.content}</div>
+            <div className="message-bubble">
+              {msg.status === "thinking" ? (
+                <span className="thinking-indicator">
+                  <span className="thinking-dots">
+                    <span /><span /><span />
+                  </span>
+                  {msg.toolInfo && (
+                    <span className="thinking-label">{msg.toolInfo}</span>
+                  )}
+                </span>
+              ) : (
+                msg.content
+              )}
+            </div>
           </div>
         ))}
         <div ref={bottomRef} />
@@ -104,18 +77,22 @@ export default function Chat() {
 
       <div className="chat-input-area">
         <textarea
-          ref={textareaRef}
+          ref={inputRef}
           className="chat-input"
-          placeholder="Describe what to build or change..."
-          value={input}
-          onChange={handleInput}
+          placeholder={
+            isConnected
+              ? "Describe what to build or change..."
+              : "Connecting to backend..."
+          }
+          disabled={!isConnected}
           onKeyDown={handleKeyDown}
+          onChange={handleInput}
           rows={1}
         />
         <button
           className="send-btn"
           onClick={handleSend}
-          disabled={!input.trim()}
+          disabled={!isConnected}
           aria-label="Send"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none">

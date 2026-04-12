@@ -1,6 +1,54 @@
-const MOCK_TODOS = ["Design landing page", "Set up auth flow", "Write unit tests"];
+import { useEffect, useRef, useState } from "react";
+import { getWebContainer } from "../lib/webcontainer";
+import { previewFiles } from "../lib/previewFiles";
+
+type Status =
+  | { type: "booting" }
+  | { type: "starting" }
+  | { type: "ready"; url: string }
+  | { type: "error"; message: string };
 
 export default function Preview() {
+  const [status, setStatus] = useState<Status>({ type: "booting" });
+  const [url, setUrl] = useState("");
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function boot() {
+      try {
+        setStatus({ type: "booting" });
+        const wc = await getWebContainer();
+        if (cancelled) return;
+
+        await wc.mount(previewFiles);
+        if (cancelled) return;
+
+        setStatus({ type: "starting" });
+        await wc.spawn("node", ["server.js"]);
+
+        wc.on("server-ready", (_port, serverUrl) => {
+          if (cancelled) return;
+          setUrl(serverUrl);
+          setStatus({ type: "ready", url: serverUrl });
+        });
+      } catch (err) {
+        if (!cancelled) {
+          setStatus({ type: "error", message: String(err) });
+        }
+      }
+    }
+
+    boot();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const displayUrl =
+    status.type === "ready" ? url.replace(/\/$/, "") : "localhost:3000";
+
   return (
     <div className="preview">
       {/* Browser chrome */}
@@ -17,42 +65,66 @@ export default function Preview() {
               <path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
             </svg>
           </span>
-          localhost:3000
+          {displayUrl}
         </div>
-        <div className="browser-actions">
+        <div
+          className="browser-actions"
+          onClick={() => {
+            if (iframeRef.current && status.type === "ready") {
+              iframeRef.current.src = url;
+            }
+          }}
+          title="Reload"
+        >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-            <polyline points="15 3 21 3 21 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            <line x1="10" y1="14" x2="21" y2="3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            <path d="M1 4v6h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M3.51 15a9 9 0 1 0 .49-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
           </svg>
         </div>
       </div>
 
-      {/* App canvas */}
+      {/* Content */}
       <div className="preview-canvas">
-        <div className="mock-app">
-          <h2 className="mock-title">My Todos</h2>
-          <div className="mock-input-row">
-            <div className="mock-input">Add a new todo...</div>
-            <button className="mock-btn">Add</button>
-          </div>
-          <ul className="mock-list">
-            {MOCK_TODOS.map((todo, i) => (
-              <li key={i} className="mock-list-item">
-                <span className="mock-checkbox" />
-                <span>{todo}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
+        {/* Iframe — always mounted so WebContainer can bind to it; hidden until ready */}
+        <iframe
+          ref={iframeRef}
+          src={status.type === "ready" ? url : "about:blank"}
+          className="preview-iframe"
+          style={{ display: status.type === "ready" ? "block" : "none" }}
+          allow="cross-origin-isolated"
+          title="Preview"
+        />
 
-        <div className="preview-badge">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
-            <path d="M12 8v4M12 16h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-          </svg>
-          WebContainers not yet connected
-        </div>
+        {status.type !== "ready" && (
+          <div className="preview-loading">
+            {status.type === "error" ? (
+              <>
+                <div className="preview-icon preview-icon-error">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
+                    <path d="M12 8v4M12 16h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  </svg>
+                </div>
+                <p className="preview-label">Failed to start</p>
+                <p className="preview-sub">{status.message}</p>
+              </>
+            ) : (
+              <>
+                <div className="preview-spinner" />
+                <p className="preview-label">
+                  {status.type === "booting"
+                    ? "Starting WebContainer..."
+                    : "Starting server..."}
+                </p>
+                <p className="preview-sub">
+                  {status.type === "booting"
+                    ? "Booting isolated runtime"
+                    : "Running node server.js"}
+                </p>
+              </>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

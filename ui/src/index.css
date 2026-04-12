@@ -430,94 +430,53 @@ html, body, #root {
 
 .preview-canvas {
   flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: auto;
-  padding: 40px;
   position: relative;
+  overflow: hidden;
 }
 
-/* Mock app */
-.mock-app {
-  background: #fff;
-  border-radius: 10px;
-  padding: 32px;
+.preview-iframe {
   width: 100%;
-  max-width: 400px;
-  box-shadow: 0 8px 40px rgba(0,0,0,.4);
-}
-
-.mock-title {
-  font-size: 20px;
-  font-weight: 700;
-  color: #111;
-  margin-bottom: 20px;
-}
-
-.mock-input-row {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 20px;
-}
-
-.mock-input {
-  flex: 1;
-  padding: 9px 12px;
-  border: 1.5px solid #e5e7eb;
-  border-radius: 7px;
-  font-size: 13.5px;
-  color: #9ca3af;
-  background: #fafafa;
-}
-
-.mock-btn {
-  padding: 9px 16px;
-  background: #6366f1;
-  color: #fff;
+  height: 100%;
   border: none;
-  border-radius: 7px;
-  font-size: 13.5px;
-  font-weight: 600;
-  cursor: default;
+  background: #fff;
 }
 
-.mock-list {
-  list-style: none;
+/* Loading / error overlay */
+.preview-loading {
+  position: absolute;
+  inset: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
 }
 
-.mock-list-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+.preview-spinner {
+  width: 28px;
+  height: 28px;
+  border: 2.5px solid var(--border-2);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.preview-icon { color: var(--text-muted); }
+.preview-icon-error { color: #f87171; }
+
+.preview-label {
   font-size: 13.5px;
-  color: #374151;
+  font-weight: 500;
+  color: var(--text);
 }
 
-.mock-checkbox {
-  width: 17px;
-  height: 17px;
-  border: 1.5px solid #d1d5db;
-  border-radius: 4px;
-  flex-shrink: 0;
-}
-
-.preview-badge {
-  position: absolute;
-  bottom: 16px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 12px;
-  background: var(--surface-3);
-  border: 1px solid var(--border-2);
-  border-radius: 20px;
-  font-size: 11.5px;
+.preview-sub {
+  font-size: 12px;
   color: var(--text-muted);
-  white-space: nowrap;
+  max-width: 280px;
+  text-align: center;
 }

@@ -1,0 +1,17 @@
+{
+  "name": "noju-agent",
+  "private": true,
+  "workspaces": [
+    "ui"
+  ],
+  "scripts": {
+    "ui": "npm run dev --workspace=ui",
+    "backend": "cd backend && uv run uvicorn app.main:app --reload",
+    "dev": "concurrently \"npm run ui\" \"npm run backend\"",
+    "lint": "npm run lint --workspace=ui",
+    "typecheck": "npm run typecheck --workspace=ui"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

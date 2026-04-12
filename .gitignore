@@ -1,0 +1,27 @@
+# deps
+node_modules/
+.pnp
+.pnp.js
+
+# vite
+ui/dist/
+
+# python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+backend/.venv/
+*.egg-info/
+dist/
+.uv/
+
+# env
+.env
+.env.local
+.env.*.local
+
+# misc
+.DS_Store
+*.log
+.turbo/

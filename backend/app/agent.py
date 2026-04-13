@@ -22,7 +22,10 @@ Rules:
 1. Always read index.html before modifying it — never write without reading first
 2. Write complete, self-contained HTML files with inline <style> and <script> tags
 3. Use only vanilla JS — no npm packages, no imports from CDNs
-4. Keep your final reply brief — one or two sentences explaining what you built/changed"""
+4. Keep your final reply brief — one or two sentences explaining what you built/changed
+5. Keep all file writes under 6000 tokens (~24000 characters). If a feature would exceed
+   this, build a simpler working version — fewer sections, less placeholder data, shorter
+   CSS. A minimal working app is better than a truncated broken one."""
 
 TOOLS: list[dict] = [
     {
@@ -94,7 +97,7 @@ class AgentSession:
         )
 
         try:
-            return await asyncio.wait_for(future, timeout=30.0)
+            return await asyncio.wait_for(future, timeout=60.0)
         except asyncio.TimeoutError:
             self._pending.pop(tool_use_id, None)
             return json.dumps({"error": "Tool execution timed out"})
@@ -104,13 +107,16 @@ class AgentSession:
         self.messages.append({"role": "user", "content": user_message})
 
         while True:
-            response = await self.client.messages.create(
-                model="claude-opus-4-6",
-                max_tokens=8096,
-                system=SYSTEM_PROMPT,
-                tools=TOOLS,  # type: ignore[arg-type]
-                messages=self.messages,
-            )
+            payload = {
+                "model": "claude-opus-4-6",
+                "max_tokens": 16000,
+                "system": SYSTEM_PROMPT,
+                "tools": TOOLS,
+                "messages": self.messages,
+            }
+            print(json.dumps(payload, indent=2), flush=True)
+
+            response = await self.client.messages.create(**payload)  # type: ignore[arg-type]
 
             # Build structured assistant content for history
             assistant_content: list[dict] = []

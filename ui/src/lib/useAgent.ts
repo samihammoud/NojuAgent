@@ -57,9 +57,15 @@ async function executeTool(
 export function useAgent() {
   const [messages, setMessages] = useState<ChatMessage[]>([WELCOME]);
   const [isConnected, setIsConnected] = useState(false);
+  const [wcReady, setWcReady] = useState(false);
   const [indexHtml, setIndexHtml] = useState<string | null>(null);
   const [previewRefreshKey, setPreviewRefreshKey] = useState(0);
   const wsRef = useRef<WebSocket | null>(null);
+
+  // Track WebContainer readiness separately from WebSocket connection
+  useEffect(() => {
+    getWebContainer().then(() => setWcReady(true));
+  }, []);
 
   useEffect(() => {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -73,11 +79,11 @@ export function useAgent() {
       const msg = JSON.parse(event.data as string) as Record<string, unknown>;
 
       if (msg.type === "tool_call") {
-        // Update thinking bubble with what's running
         const label = toolLabel(
           msg.tool as string,
           msg.arguments as Record<string, string>
         );
+        console.log("[tool_call]", msg.tool, msg.arguments);
         setMessages((prev) => {
           const last = prev[prev.length - 1];
           if (last?.status === "thinking") {
@@ -89,11 +95,11 @@ export function useAgent() {
           return prev;
         });
 
-        // Execute the tool and send result back
         const result = await executeTool(
           msg.tool as string,
           msg.arguments as Record<string, string>
         );
+        console.log("[tool_result]", msg.tool, result.slice(0, 200));
         ws.send(
           JSON.stringify({
             type: "tool_result",
@@ -102,7 +108,6 @@ export function useAgent() {
           })
         );
       } else if (msg.type === "assistant_message") {
-        // Replace thinking bubble with the final answer
         setMessages((prev) => {
           const last = prev[prev.length - 1];
           if (last?.status === "thinking") {
@@ -131,10 +136,11 @@ export function useAgent() {
         try {
           const wc = await getWebContainer();
           const content = await wc.fs.readFile("index.html", "utf-8");
+          console.log("[preview] index.html updated, length:", content.length);
           setIndexHtml(content);
           setPreviewRefreshKey((k) => k + 1);
-        } catch {
-          // File might not exist yet
+        } catch (err) {
+          console.error("[preview] failed to read index.html after agent turn:", err);
         }
       } else if (msg.type === "error") {
         setMessages((prev) => {
@@ -156,7 +162,15 @@ export function useAgent() {
     };
 
     return () => {
-      ws.close();
+      // StrictMode calls cleanup while the socket may still be CONNECTING.
+      // Closing mid-handshake triggers a browser warning, so defer the close
+      // until the connection opens, then shut it immediately.
+      if (ws.readyState === WebSocket.CONNECTING) {
+        ws.onopen = () => ws.close();
+      } else {
+        ws.close();
+      }
+      wsRef.current = null;
     };
   }, []);
 
@@ -181,5 +195,5 @@ export function useAgent() {
     wsRef.current.send(JSON.stringify({ type: "user_message", content }));
   }
 
-  return { messages, sendMessage, isConnected, indexHtml, previewRefreshKey };
+  return { messages, sendMessage, isConnected: isConnected && wcReady, indexHtml, previewRefreshKey };
 }

@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { getWebContainer } from "../lib/webcontainer";
-import { previewFiles } from "../lib/previewFiles";
+import { getWebContainer, serverUrlPromise } from "../lib/webcontainer";
 
 interface Props {
   refreshKey: number;
@@ -23,20 +22,18 @@ export default function Preview({ refreshKey }: Props) {
     async function boot() {
       try {
         setStatus({ type: "booting" });
-        const wc = await getWebContainer();
-        if (cancelled) return;
-
-        await wc.mount(previewFiles);
+        await getWebContainer();
         if (cancelled) return;
 
         setStatus({ type: "starting" });
-        await wc.spawn("node", ["server.js"]);
 
-        wc.on("server-ready", (_port, serverUrl) => {
-          if (cancelled) return;
-          urlRef.current = serverUrl;
-          setStatus({ type: "ready", url: serverUrl });
-        });
+        // serverUrlPromise resolves whenever server-ready fires — works even if
+        // it already fired before this component mounted.
+        const url = await serverUrlPromise;
+        if (cancelled) return;
+
+        urlRef.current = url;
+        setStatus({ type: "ready", url });
       } catch (err) {
         if (!cancelled) {
           setStatus({ type: "error", message: String(err) });

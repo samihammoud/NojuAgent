@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { getWebContainer } from "./webcontainer";
+import { previewFiles } from "./previewFiles";
 import {
   toolListFiles,
   toolReadFile,
   toolWriteFile,
 } from "./webcontainerTools";
+
+const defaultIndexHtml = (previewFiles["index.html"] as { file: { contents: string } }).file.contents;
 
 export interface ChatMessage {
   id: string;
@@ -58,7 +61,7 @@ export function useAgent() {
   const [messages, setMessages] = useState<ChatMessage[]>([WELCOME]);
   const [isConnected, setIsConnected] = useState(false);
   const [wcReady, setWcReady] = useState(false);
-  const [indexHtml, setIndexHtml] = useState<string | null>(null);
+  const [indexHtml, setIndexHtml] = useState<string | null>(defaultIndexHtml);
   const [previewRefreshKey, setPreviewRefreshKey] = useState(0);
   const wsRef = useRef<WebSocket | null>(null);
 

@@ -10,7 +10,7 @@ interface Props {
 }
 
 export default function WorkspacePanel({ indexHtml, previewRefreshKey }: Props) {
-  const [tab, setTab] = useState<Tab>("code");
+  const [tab, setTab] = useState<Tab>("preview");
 
   return (
     <section className="workspace">
@@ -39,7 +39,7 @@ export default function WorkspacePanel({ indexHtml, previewRefreshKey }: Props) 
 
       <div className="workspace-content" style={{ position: "relative" }}>
         {/* Both panels stay mounted so WebContainer keeps running */}
-        <div style={{ display: tab === "code" ? "flex" : "none", height: "100%" }}>
+        <div style={{ display: tab === "code" ? "flex" : "none", height: "100%", width: "100%" }}>
           <CodeEditor content={indexHtml} />
         </div>
         <div style={{ display: tab === "preview" ? "flex" : "none", height: "100%" }}>

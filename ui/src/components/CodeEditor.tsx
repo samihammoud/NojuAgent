@@ -1,10 +1,10 @@
+import Editor from "@monaco-editor/react";
+
 interface Props {
   content: string | null;
 }
 
 export default function CodeEditor({ content }: Props) {
-  const lines = content?.split("\n") ?? null;
-
   return (
     <div className="code-editor">
       <div className="editor-topbar">
@@ -13,29 +13,30 @@ export default function CodeEditor({ content }: Props) {
         </div>
       </div>
 
-      {lines === null ? (
-        <div className="editor-empty">
-          <div className="preview-spinner" />
-          <p className="preview-label" style={{ marginTop: 12 }}>
-            Waiting for WebContainer...
-          </p>
-        </div>
-      ) : (
-        <div className="editor-body">
-          <div className="line-numbers">
-            {lines.map((_, i) => (
-              <span key={i}>{i + 1}</span>
-            ))}
-          </div>
-          <pre className="editor-code">
-            {lines.map((line, i) => (
-              <div key={i} className="code-line">
-                {line || "\u00a0"}
-              </div>
-            ))}
-          </pre>
-        </div>
-      )}
+      <div style={{ height: "calc(100% - 36px)", overflow: "hidden" }}>
+        <Editor
+          height="100%"
+          defaultLanguage="html"
+          value={content ?? ""}
+          theme="vs-dark"
+          options={{
+            readOnly: true,
+            minimap: { enabled: false },
+            fontSize: 13,
+            fontFamily: "'Monaco', 'Menlo', 'Courier New', monospace",
+            lineNumbers: "on",
+            scrollBeyondLastLine: false,
+            wordWrap: "on",
+            renderLineHighlight: "none",
+            overviewRulerLanes: 0,
+            hideCursorInOverviewRuler: true,
+            scrollbar: {
+              vertical: "auto",
+              horizontal: "auto",
+            },
+          }}
+        />
+      </div>
     </div>
   );
 }

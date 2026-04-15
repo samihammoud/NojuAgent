@@ -62,6 +62,25 @@ const indexHtml = /* html */ `<!DOCTYPE html>
       opacity: 0.3;
       line-height: 1.6;
     }
+
+    .typewriter {
+      display: inline;
+    }
+
+    .cursor {
+      display: inline-block;
+      width: 1px;
+      height: 1em;
+      background: rgba(255,255,255,0.4);
+      margin-left: 2px;
+      vertical-align: text-bottom;
+      animation: blink 1s step-end infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0; }
+    }
   </style>
 </head>
 <body>
@@ -70,8 +89,21 @@ const indexHtml = /* html */ `<!DOCTYPE html>
       <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
     </svg>
     <h1>Welcome to Noju AI</h1>
-    <p>Let's start coding</p>
+    <p><span class="typewriter" id="tw"></span><span class="cursor"></span></p>
   </div>
+  <script>
+    const text = "Let's start coding";
+    const el = document.getElementById('tw');
+    let i = 0;
+    function type() {
+      if (i <= text.length) {
+        el.textContent = text.slice(0, i);
+        i++;
+        setTimeout(type, 60);
+      }
+    }
+    setTimeout(type, 400);
+  </script>
 </body>
 </html>
 `;

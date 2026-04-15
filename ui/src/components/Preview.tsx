@@ -54,9 +54,6 @@ export default function Preview({ refreshKey }: Props) {
     }
   }, [refreshKey]);
 
-  const displayUrl =
-    status.type === "ready" ? status.url.replace(/\/$/, "") : "localhost:3000";
-
   return (
     <div className="preview" style={{ width: "100%" }}>
       {/* Browser chrome */}
@@ -66,15 +63,7 @@ export default function Preview({ refreshKey }: Props) {
           <span className="dot dot-yellow" />
           <span className="dot dot-green" />
         </div>
-        {/* <div className="browser-bar">
-          <span className="browser-lock">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
-              <rect x="3" y="11" width="18" height="11" rx="2" stroke="currentColor" strokeWidth="2" />
-              <path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-            </svg>
-          </span>
-          {displayUrl}
-        </div> */}
+
         <div
           className="browser-actions"
           onClick={() => {

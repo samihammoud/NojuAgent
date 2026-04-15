@@ -157,6 +157,8 @@ class AgentSession:
                     result = await self._call_tool(
                         send, block.id, block.name, block.input
                     )
+
+                    #essentially waits here per helper funciton
                     tool_results.append(
                         {
                             "type": "tool_result",

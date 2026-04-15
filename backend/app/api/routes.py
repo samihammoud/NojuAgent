@@ -31,6 +31,7 @@ async def websocket_endpoint(ws: WebSocket) -> None:
             await ws.send_json(msg)
         except Exception:
             pass
+    ##FUTURE: Rewrite Send to forward tools to database instead of browser, and write to webContainer on fileWrites only
 
     async def run_agent(content: str) -> None:
         try:
@@ -65,6 +66,7 @@ async def websocket_endpoint(ws: WebSocket) -> None:
                     raw.get("tool_use_id", ""),
                     raw.get("result", ""),
                 )
+
 
     except WebSocketDisconnect:
         logger.info("Client disconnected")

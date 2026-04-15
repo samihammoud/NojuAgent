@@ -55,9 +55,7 @@ export default function Preview({ refreshKey }: Props) {
   }, [refreshKey]);
 
   const displayUrl =
-    status.type === "ready"
-      ? status.url.replace(/\/$/, "")
-      : "localhost:3000";
+    status.type === "ready" ? status.url.replace(/\/$/, "") : "localhost:3000";
 
   return (
     <div className="preview" style={{ width: "100%" }}>
@@ -68,7 +66,7 @@ export default function Preview({ refreshKey }: Props) {
           <span className="dot dot-yellow" />
           <span className="dot dot-green" />
         </div>
-        <div className="browser-bar">
+        {/* <div className="browser-bar">
           <span className="browser-lock">
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
               <rect x="3" y="11" width="18" height="11" rx="2" stroke="currentColor" strokeWidth="2" />
@@ -76,7 +74,7 @@ export default function Preview({ refreshKey }: Props) {
             </svg>
           </span>
           {displayUrl}
-        </div>
+        </div> */}
         <div
           className="browser-actions"
           onClick={() => {
@@ -87,8 +85,19 @@ export default function Preview({ refreshKey }: Props) {
           title="Reload"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-            <path d="M1 4v6h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            <path d="M3.51 15a9 9 0 1 0 .49-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            <path
+              d="M1 4v6h6"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M3.51 15a9 9 0 1 0 .49-5"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
           </svg>
         </div>
       </div>
@@ -110,8 +119,19 @@ export default function Preview({ refreshKey }: Props) {
               <>
                 <div className="preview-icon preview-icon-error">
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
-                    <path d="M12 8v4M12 16h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                    <circle
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    />
+                    <path
+                      d="M12 8v4M12 16h.01"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    />
                   </svg>
                 </div>
                 <p className="preview-label">Failed to start</p>

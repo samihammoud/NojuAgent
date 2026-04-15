@@ -1,31 +1,40 @@
 /* ── Reset ───────────────────────────────────────────── */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
 
 /* ── Tokens ──────────────────────────────────────────── */
 :root {
-  --bg:          #0c0c0c;
-  --surface:     #141414;
-  --surface-2:   #1c1c1c;
-  --surface-3:   #242424;
-  --border:      #262626;
-  --border-2:    #333;
-  --text:        #e8e8e8;
-  --text-muted:  #5a5a5a;
-  --text-dim:    #888;
-  --accent:      #6366f1;
-  --accent-dim:  rgba(99,102,241,.15);
-  --radius:      8px;
-  --radius-sm:   5px;
-  --font-mono:   "JetBrains Mono", "Fira Code", "Cascadia Code", Menlo, monospace;
+  --bg: #0c0c0c;
+  --surface: #141414;
+  --surface-2: #1c1c1c;
+  --surface-3: #242424;
+  --border: #262626;
+  --border-2: #333;
+  --text: #e8e8e8;
+  --text-muted: #5a5a5a;
+  --text-dim: #888;
+  --accent: #6366f1;
+  --accent-dim: rgba(99, 102, 241, 0.15);
+  --radius: 8px;
+  --radius-sm: 5px;
+  --font-mono: "JetBrains Mono", "Fira Code", "Cascadia Code", Menlo, monospace;
 }
 
 /* ── Base ────────────────────────────────────────────── */
-html, body, #root {
+html,
+body,
+#root {
   height: 100vh;
   overflow: hidden;
   background: var(--bg);
   color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
   font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
@@ -104,9 +113,14 @@ html, body, #root {
   border-radius: var(--radius-sm);
   font-size: 13px;
   cursor: pointer;
-  transition: color .15s, border-color .15s;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
 }
-.btn-ghost:hover { color: var(--text); border-color: #555; }
+.btn-ghost:hover {
+  color: var(--text);
+  border-color: #555;
+}
 
 .btn-primary {
   background: var(--accent);
@@ -117,9 +131,11 @@ html, body, #root {
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  transition: opacity .15s;
+  transition: opacity 0.15s;
 }
-.btn-primary:hover { opacity: .85; }
+.btn-primary:hover {
+  opacity: 0.85;
+}
 
 /* ── Chat Panel ──────────────────────────────────────── */
 .chat-panel {
@@ -143,20 +159,33 @@ html, body, #root {
   scrollbar-color: var(--border-2) transparent;
 }
 
-.chat-messages::-webkit-scrollbar { width: 4px; }
-.chat-messages::-webkit-scrollbar-track { background: transparent; }
-.chat-messages::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 2px; }
+.chat-messages::-webkit-scrollbar {
+  width: 4px;
+}
+.chat-messages::-webkit-scrollbar-track {
+  background: transparent;
+}
+.chat-messages::-webkit-scrollbar-thumb {
+  background: var(--border-2);
+  border-radius: 2px;
+}
 
 .message {
   display: flex;
   gap: 10px;
   align-items: flex-start;
-  animation: fadeUp .2s ease;
+  animation: fadeUp 0.2s ease;
 }
 
 @keyframes fadeUp {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .message-user {
@@ -168,7 +197,7 @@ html, body, #root {
   height: 26px;
   border-radius: 50%;
   background: var(--accent-dim);
-  border: 1px solid rgba(99,102,241,.3);
+  border: 1px solid rgba(99, 102, 241, 0.3);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -220,10 +249,14 @@ html, body, #root {
   line-height: 1.5;
   min-height: 38px;
   max-height: 160px;
-  transition: border-color .15s;
+  transition: border-color 0.15s;
 }
-.chat-input:focus { border-color: var(--accent); }
-.chat-input::placeholder { color: var(--text-muted); }
+.chat-input:focus {
+  border-color: var(--accent);
+}
+.chat-input::placeholder {
+  color: var(--text-muted);
+}
 
 .send-btn {
   width: 34px;
@@ -237,10 +270,15 @@ html, body, #root {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  transition: opacity .15s;
+  transition: opacity 0.15s;
 }
-.send-btn:hover:not(:disabled) { opacity: .85; }
-.send-btn:disabled { opacity: .35; cursor: not-allowed; }
+.send-btn:hover:not(:disabled) {
+  opacity: 0.85;
+}
+.send-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
 
 /* ── Thinking indicator ──────────────────────────────── */
 .thinking-indicator {
@@ -262,12 +300,22 @@ html, body, #root {
   background: var(--accent);
   animation: blink 1.2s infinite;
 }
-.thinking-dots span:nth-child(2) { animation-delay: .2s; }
-.thinking-dots span:nth-child(3) { animation-delay: .4s; }
+.thinking-dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.thinking-dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
 
 @keyframes blink {
-  0%, 80%, 100% { opacity: .2; }
-  40%            { opacity: 1; }
+  0%,
+  80%,
+  100% {
+    opacity: 0.2;
+  }
+  40% {
+    opacity: 1;
+  }
 }
 
 .thinking-label {
@@ -306,10 +354,18 @@ html, body, #root {
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  transition: color .15s, background .15s;
+  transition:
+    color 0.15s,
+    background 0.15s;
 }
-.workspace-tab:hover { color: var(--text); background: var(--surface-2); }
-.workspace-tab-active { color: var(--text) !important; background: var(--surface-2) !important; }
+.workspace-tab:hover {
+  color: var(--text);
+  background: var(--surface-2);
+}
+.workspace-tab-active {
+  color: var(--text) !important;
+  background: var(--surface-2) !important;
+}
 
 .workspace-content {
   flex: 1;
@@ -372,8 +428,14 @@ html, body, #root {
   scrollbar-width: thin;
   scrollbar-color: var(--border-2) transparent;
 }
-.editor-body::-webkit-scrollbar { width: 6px; height: 6px; }
-.editor-body::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 3px; }
+.editor-body::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.editor-body::-webkit-scrollbar-thumb {
+  background: var(--border-2);
+  border-radius: 3px;
+}
 
 .line-numbers {
   display: flex;
@@ -400,17 +462,36 @@ html, body, #root {
   overflow: visible;
 }
 
-.code-line { display: block; }
+.code-line {
+  display: block;
+}
 
 /* Syntax tokens */
-.tok-keyword   { color: #c792ea; }
-.tok-component { color: #82aaff; }
-.tok-string    { color: #c3e88d; }
-.tok-fn        { color: #82aaff; }
-.tok-comment   { color: #546e7a; font-style: italic; }
-.tok-number    { color: #f78c6c; }
-.tok-punct     { color: #89ddff; }
-.tok-plain     { color: #d4d4d8; }
+.tok-keyword {
+  color: #c792ea;
+}
+.tok-component {
+  color: #82aaff;
+}
+.tok-string {
+  color: #c3e88d;
+}
+.tok-fn {
+  color: #82aaff;
+}
+.tok-comment {
+  color: #546e7a;
+  font-style: italic;
+}
+.tok-number {
+  color: #f78c6c;
+}
+.tok-punct {
+  color: #89ddff;
+}
+.tok-plain {
+  color: #d4d4d8;
+}
 
 /* ── Preview ─────────────────────────────────────────── */
 .preview {
@@ -442,9 +523,15 @@ html, body, #root {
   height: 11px;
   border-radius: 50%;
 }
-.dot-red    { background: #ff5f57; }
-.dot-yellow { background: #febc2e; }
-.dot-green  { background: #28c840; }
+.dot-red {
+  background: #ff5f57;
+}
+.dot-yellow {
+  background: #febc2e;
+}
+.dot-green {
+  background: #28c840;
+}
 
 .browser-bar {
   flex: 1;
@@ -461,14 +548,19 @@ html, body, #root {
   margin: 0 auto;
 }
 
-.browser-lock { color: var(--text-muted); display: flex; }
+.browser-lock {
+  color: var(--text-muted);
+  display: flex;
+}
 
 .browser-actions {
   color: var(--text-muted);
   display: flex;
   cursor: pointer;
 }
-.browser-actions:hover { color: var(--text-dim); }
+.browser-actions:hover {
+  color: var(--text-dim);
+}
 
 .preview-canvas {
   flex: 1;
@@ -500,15 +592,21 @@ html, body, #root {
   border: 2.5px solid var(--border-2);
   border-top-color: var(--accent);
   border-radius: 50%;
-  animation: spin .7s linear infinite;
+  animation: spin 0.7s linear infinite;
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
-.preview-icon { color: var(--text-muted); }
-.preview-icon-error { color: #f87171; }
+.preview-icon {
+  color: var(--text-muted);
+}
+.preview-icon-error {
+  color: #f87171;
+}
 
 .preview-label {
   font-size: 13.5px;

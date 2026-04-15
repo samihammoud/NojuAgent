@@ -20,7 +20,7 @@ export async function getWebContainer(): Promise<WebContainer> {
     await wc.mount(previewFiles);
 
     // Warm up the WASM filesystem workers by doing a dummy read/write cycle.
-    // Without this, the first large write_file (e.g. a CRM dashboard) can stall
+    // Without this, the first large write_file can stall
     // the unwarmed workers and hit the backend's 30s tool timeout.
     await wc.fs.writeFile(".__warmup", "ok");
     await wc.fs.readFile(".__warmup", "utf-8");

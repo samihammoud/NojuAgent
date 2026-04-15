@@ -69,7 +69,7 @@ const indexHtml = /* html */ `<!DOCTYPE html>
     <svg class="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
     </svg>
-    <h1>Nothing to preview yet</h1>
+    <h1>Welcome to Noju AI</h1>
     <p>Let's start coding</p>
   </div>
 </body>

@@ -5,11 +5,13 @@ import Preview from "./Preview";
 type Tab = "code" | "preview";
 
 interface Props {
-  indexHtml: string | null;
-  previewRefreshKey: number;
+  openFiles: Record<string, string>;
+  activeFile: string;
+  onSelectFile: (path: string) => void;
+  onLoadFile: (path: string) => Promise<string>;
 }
 
-export default function WorkspacePanel({ indexHtml, previewRefreshKey }: Props) {
+export default function WorkspacePanel({ openFiles, activeFile, onSelectFile, onLoadFile }: Props) {
   const [tab, setTab] = useState<Tab>("preview");
 
   return (
@@ -40,10 +42,15 @@ export default function WorkspacePanel({ indexHtml, previewRefreshKey }: Props) 
       <div className="workspace-content" style={{ position: "relative" }}>
         {/* Both panels stay mounted so WebContainer keeps running */}
         <div style={{ display: tab === "code" ? "flex" : "none", height: "100%", width: "100%" }}>
-          <CodeEditor content={indexHtml} />
+          <CodeEditor
+            files={openFiles}
+            activeFile={activeFile}
+            onSelectFile={onSelectFile}
+            onLoadFile={onLoadFile}
+          />
         </div>
         <div style={{ display: tab === "preview" ? "flex" : "none", height: "100%" }}>
-          <Preview refreshKey={previewRefreshKey} />
+          <Preview />
         </div>
       </div>
     </section>

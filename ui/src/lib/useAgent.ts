@@ -1,13 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { getWebContainer } from "./webcontainer";
-import { previewFiles } from "./previewFiles";
+import { defaultEditorFiles } from "./previewFiles";
 import {
   toolListFiles,
   toolReadFile,
   toolWriteFile,
+  toolRunCommand,
 } from "./webcontainerTools";
-
-const defaultIndexHtml = (previewFiles["index.html"] as { file: { contents: string } }).file.contents;
 
 export interface ChatMessage {
   id: string;
@@ -35,6 +34,8 @@ function toolLabel(tool: string, args: Record<string, string>): string {
       return `Reading ${args.path}`;
     case "write_file":
       return `Writing ${args.path}`;
+    case "run_command":
+      return `Running: ${args.command}`;
     default:
       return `Running ${tool}`;
   }
@@ -42,7 +43,7 @@ function toolLabel(tool: string, args: Record<string, string>): string {
 
 async function executeTool(
   tool: string,
-  args: Record<string, string>,
+  args: Record<string, string>
 ): Promise<string> {
   const wc = await getWebContainer();
   switch (tool) {
@@ -52,6 +53,8 @@ async function executeTool(
       return toolReadFile(wc, args.path);
     case "write_file":
       return toolWriteFile(wc, args.path, args.content);
+    case "run_command":
+      return toolRunCommand(wc, args.command, 120_000);
     default:
       return JSON.stringify({ error: `Unknown tool: ${tool}` });
   }
@@ -61,18 +64,17 @@ export function useAgent() {
   const [messages, setMessages] = useState<ChatMessage[]>([WELCOME]);
   const [isConnected, setIsConnected] = useState(false);
   const [wcReady, setWcReady] = useState(false);
-  const [indexHtml, setIndexHtml] = useState<string | null>(defaultIndexHtml);
-  const [previewRefreshKey, setPreviewRefreshKey] = useState(0);
+  const [openFiles, setOpenFiles] = useState<Record<string, string>>(defaultEditorFiles);
+  const [activeFile, setActiveFile] = useState<string>("src/App.jsx");
   const wsRef = useRef<WebSocket | null>(null);
 
-  // Track WebContainer readiness separately from WebSocket connection
+  // Track WebContainer readiness
   useEffect(() => {
     getWebContainer().then(() => setWcReady(true));
   }, []);
 
   useEffect(() => {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    //Vite Proxy connects to FastAPI's WebSocket endpoint at /api/ws
     const ws = new WebSocket(`${protocol}//${window.location.host}/api/ws`);
     wsRef.current = ws;
 
@@ -85,7 +87,7 @@ export function useAgent() {
       if (msg.type === "tool_call") {
         const label = toolLabel(
           msg.tool as string,
-          msg.arguments as Record<string, string>,
+          msg.arguments as Record<string, string>
         );
         console.log("[tool_call]", msg.tool, msg.arguments);
         setMessages((prev) => {
@@ -98,15 +100,23 @@ export function useAgent() {
 
         const result = await executeTool(
           msg.tool as string,
-          msg.arguments as Record<string, string>,
+          msg.arguments as Record<string, string>
         );
         console.log("[tool_result]", msg.tool, result.slice(0, 200));
+
+        // If agent wrote a file, update the editor cache
+        if (msg.tool === "write_file") {
+          const args = msg.arguments as Record<string, string>;
+          setOpenFiles((prev) => ({ ...prev, [args.path]: args.content }));
+          setActiveFile(args.path);
+        }
+
         ws.send(
           JSON.stringify({
             type: "tool_result",
             tool_use_id: msg.tool_use_id,
             result,
-          }),
+          })
         );
       } else if (msg.type === "assistant_message") {
         setMessages((prev) => {
@@ -133,18 +143,28 @@ export function useAgent() {
           ];
         });
 
-        // Read updated index.html and signal preview reload
+        // Refresh file tree after agent turn
         try {
           const wc = await getWebContainer();
-          const content = await wc.fs.readFile("index.html", "utf-8");
-          console.log("[preview] index.html updated, length:", content.length);
-          setIndexHtml(content);
-          setPreviewRefreshKey((k) => k + 1);
-        } catch (err) {
-          console.error(
-            "[preview] failed to read index.html after agent turn:",
-            err,
+          const result = await toolListFiles(wc, ".");
+          const { files } = JSON.parse(result) as { files: string[] };
+          // Load content for any new files not yet in cache
+          const updates: Record<string, string> = {};
+          await Promise.all(
+            files.map(async (f) => {
+              if (!(f in openFiles)) {
+                try {
+                  const content = await wc.fs.readFile(f, "utf-8");
+                  updates[f] = content;
+                } catch {}
+              }
+            })
           );
+          if (Object.keys(updates).length > 0) {
+            setOpenFiles((prev) => ({ ...prev, ...updates }));
+          }
+        } catch (err) {
+          console.error("[files] failed to refresh file tree:", err);
         }
       } else if (msg.type === "error") {
         setMessages((prev) => {
@@ -166,9 +186,6 @@ export function useAgent() {
     };
 
     return () => {
-      // StrictMode calls cleanup while the socket may still be CONNECTING.
-      // Closing mid-handshake triggers a browser warning, so defer the close
-      // until the connection opens, then shut it immediately.
       if (ws.readyState === WebSocket.CONNECTING) {
         ws.onopen = () => ws.close();
       } else {
@@ -177,6 +194,18 @@ export function useAgent() {
       wsRef.current = null;
     };
   }, []);
+
+  async function onLoadFile(path: string): Promise<string> {
+    if (openFiles[path] !== undefined) return openFiles[path];
+    try {
+      const wc = await getWebContainer();
+      const content = await wc.fs.readFile(path, "utf-8");
+      setOpenFiles((prev) => ({ ...prev, [path]: content }));
+      return content;
+    } catch {
+      return "";
+    }
+  }
 
   function sendMessage(content: string) {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
@@ -195,7 +224,6 @@ export function useAgent() {
     };
 
     setMessages((prev) => [...prev, userMsg, thinkingMsg]);
-
     wsRef.current.send(JSON.stringify({ type: "user_message", content }));
   }
 
@@ -203,7 +231,9 @@ export function useAgent() {
     messages,
     sendMessage,
     isConnected: isConnected && wcReady,
-    indexHtml,
-    previewRefreshKey,
+    openFiles,
+    activeFile,
+    setActiveFile,
+    onLoadFile,
   };
 }

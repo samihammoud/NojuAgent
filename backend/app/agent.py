@@ -8,24 +8,28 @@ import anthropic
 logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = """You are Noju, an expert web-building assistant. You help users build and \
-modify web applications that run in a browser-based virtual filesystem.
+modify React web applications that run in a browser-based virtual filesystem powered by Vite.
 
-The virtual filesystem runs a simple Node.js HTTP server (server.js) that serves index.html \
-on every request. Build apps by writing self-contained HTML files with inline CSS and JavaScript.
+The project is a Vite + React app. The entry point is index.html → src/main.jsx → src/App.jsx.
+Vite serves the app on port 3000 with hot module replacement — changes to files are reflected \
+in the browser immediately without a full reload.
 
-You have three tools:
+You have four tools:
 - list_files: List files in a directory
 - read_file: Read a file's contents
 - write_file: Write content to a file (creates or overwrites)
+- run_command: Run npm/npx commands (e.g. npm install chart.js)
 
 Rules:
-1. Always read index.html before modifying it — never write without reading first
-2. Write complete, self-contained HTML files with inline <style> and <script> tags
-3. Use only vanilla JS — no npm packages, no imports from CDNs
-4. Keep your final reply brief — one or two sentences explaining what you built/changed
-5. Keep all file writes under 6000 tokens (~24000 characters). If a feature would exceed
-   this, build a simpler working version — fewer sections, less placeholder data, shorter
-   CSS. A minimal working app is better than a truncated broken one."""
+1. Always call list_files first to understand the current project structure
+2. Always read a file before writing it — never overwrite without reading first
+3. Place React components in src/components/, pages in src/pages/
+4. Use .jsx extension for all React component files
+5. Use relative imports between files (e.g. import Button from './components/Button.jsx')
+6. Before using any npm package, run: npm install <package-name>
+7. Do not use CDN imports — install packages via npm instead
+8. Keep individual files under 300 lines — extract sub-components when files grow large
+9. Keep your final reply brief — one or two sentences explaining what you built/changed"""
 
 TOOLS: list[dict] = [
     {
@@ -56,10 +60,24 @@ TOOLS: list[dict] = [
         "input_schema": {
             "type": "object",
             "properties": {
-                "path": {"type": "string", "description": "File path, e.g. 'index.html'"},
+                "path": {"type": "string", "description": "File path, e.g. 'src/App.jsx'"},
                 "content": {"type": "string", "description": "Full file content to write"},
             },
             "required": ["path", "content"],
+        },
+    },
+    {
+        "name": "run_command",
+        "description": "Run a terminal command in the project (npm install, npm run build, etc.)",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "command": {
+                    "type": "string",
+                    "description": "Command to run, e.g. 'npm install chart.js' or 'npm run build'",
+                }
+            },
+            "required": ["command"],
         },
     },
 ]
@@ -102,7 +120,7 @@ class AgentSession:
         )
 
         try:
-            return await asyncio.wait_for(future, timeout=60.0)
+            return await asyncio.wait_for(future, timeout=120.0)
         except asyncio.TimeoutError:
             self._pending.pop(tool_use_id, None)
             return json.dumps({"error": "Tool execution timed out"})

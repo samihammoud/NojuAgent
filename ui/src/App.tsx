@@ -4,7 +4,7 @@ import WorkspacePanel from "./components/WorkspacePanel";
 import { useAgent } from "./lib/useAgent";
 
 export default function App() {
-  const { messages, sendMessage, isConnected, indexHtml, previewRefreshKey } =
+  const { messages, sendMessage, isConnected, openFiles, activeFile, setActiveFile, onLoadFile } =
     useAgent();
 
   return (
@@ -17,8 +17,10 @@ export default function App() {
           isConnected={isConnected}
         />
         <WorkspacePanel
-          indexHtml={indexHtml}
-          previewRefreshKey={previewRefreshKey}
+          openFiles={openFiles}
+          activeFile={activeFile}
+          onSelectFile={setActiveFile}
+          onLoadFile={onLoadFile}
         />
       </div>
     </div>

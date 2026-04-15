@@ -422,6 +422,40 @@ body,
   gap: 4px;
 }
 
+.file-tree {
+  width: 160px;
+  flex-shrink: 0;
+  overflow-y: auto;
+  border-right: 1px solid var(--border);
+  background: #0f0f0f;
+  padding: 6px 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-2) transparent;
+}
+
+.file-tree-item {
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  padding: 4px 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-radius: 3px;
+  margin: 0 4px;
+}
+
+.file-tree-item:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.file-tree-item-active {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
 .editor-body {
   display: flex;
   flex: 1;

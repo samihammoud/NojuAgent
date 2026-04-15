@@ -39,7 +39,7 @@ function toolLabel(tool: string, args: Record<string, string>): string {
 
 async function executeTool(
   tool: string,
-  args: Record<string, string>
+  args: Record<string, string>,
 ): Promise<string> {
   const wc = await getWebContainer();
   switch (tool) {
@@ -69,6 +69,7 @@ export function useAgent() {
 
   useEffect(() => {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    //Vite Proxy connects to FastAPI's WebSocket endpoint at /api/ws
     const ws = new WebSocket(`${protocol}//${window.location.host}/api/ws`);
     wsRef.current = ws;
 
@@ -81,23 +82,20 @@ export function useAgent() {
       if (msg.type === "tool_call") {
         const label = toolLabel(
           msg.tool as string,
-          msg.arguments as Record<string, string>
+          msg.arguments as Record<string, string>,
         );
         console.log("[tool_call]", msg.tool, msg.arguments);
         setMessages((prev) => {
           const last = prev[prev.length - 1];
           if (last?.status === "thinking") {
-            return [
-              ...prev.slice(0, -1),
-              { ...last, toolInfo: label },
-            ];
+            return [...prev.slice(0, -1), { ...last, toolInfo: label }];
           }
           return prev;
         });
 
         const result = await executeTool(
           msg.tool as string,
-          msg.arguments as Record<string, string>
+          msg.arguments as Record<string, string>,
         );
         console.log("[tool_result]", msg.tool, result.slice(0, 200));
         ws.send(
@@ -105,7 +103,7 @@ export function useAgent() {
             type: "tool_result",
             tool_use_id: msg.tool_use_id,
             result,
-          })
+          }),
         );
       } else if (msg.type === "assistant_message") {
         setMessages((prev) => {
@@ -140,7 +138,10 @@ export function useAgent() {
           setIndexHtml(content);
           setPreviewRefreshKey((k) => k + 1);
         } catch (err) {
-          console.error("[preview] failed to read index.html after agent turn:", err);
+          console.error(
+            "[preview] failed to read index.html after agent turn:",
+            err,
+          );
         }
       } else if (msg.type === "error") {
         setMessages((prev) => {
@@ -195,5 +196,11 @@ export function useAgent() {
     wsRef.current.send(JSON.stringify({ type: "user_message", content }));
   }
 
-  return { messages, sendMessage, isConnected: isConnected && wcReady, indexHtml, previewRefreshKey };
+  return {
+    messages,
+    sendMessage,
+    isConnected: isConnected && wcReady,
+    indexHtml,
+    previewRefreshKey,
+  };
 }

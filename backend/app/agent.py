@@ -75,15 +75,20 @@ class AgentSession:
         self.messages: list[dict] = []
         self._pending: dict[str, asyncio.Future[str]] = {}
 
+    # this is how continuity is preserved after agent calls tool over websocket
     def deliver_tool_result(self, tool_use_id: str, result: str) -> None:
         future = self._pending.pop(tool_use_id, None)
         if future and not future.done():
             future.set_result(result)
 
+  
     async def _call_tool(
         self, send: SendFn, tool_use_id: str, tool: str, args: dict
     ) -> str:
         loop = asyncio.get_event_loop()
+
+        #waiting for websocket to execute and resolve future, resumes after future resolved
+        #coopoerative waiting on routes.py
         future: asyncio.Future[str] = loop.create_future()
         self._pending[tool_use_id] = future
 
@@ -143,6 +148,7 @@ class AgentSession:
                 await send({"type": "assistant_message", "content": final_text})
                 break
 
+            #call tool over websocket
             if response.stop_reason == "tool_use":
                 tool_results: list[dict] = []
                 for block in response.content:

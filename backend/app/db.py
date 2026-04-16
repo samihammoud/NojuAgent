@@ -13,7 +13,7 @@ def get_client() -> Client:
     return _client
 
 
-async def upsert_user(user_id: str, email: str) -> None:
+async def upsert_user(user_id: str, email: str | None = None) -> None:
     get_client().table("users").upsert(
         {"id": user_id, "email": email}
     ).execute()

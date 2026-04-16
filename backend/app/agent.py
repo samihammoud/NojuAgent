@@ -92,6 +92,7 @@ class AgentSession:
         self.client = client
         self.messages: list[dict] = []
         self._pending: dict[str, asyncio.Future[str]] = {}
+        self.file_writes: dict[str, str] = {}
 
     # this is how continuity is preserved after agent calls tool over websocket
     def deliver_tool_result(self, tool_use_id: str, result: str) -> None:
@@ -99,10 +100,13 @@ class AgentSession:
         if future and not future.done():
             future.set_result(result)
 
-  
+
     async def _call_tool(
         self, send: SendFn, tool_use_id: str, tool: str, args: dict
     ) -> str:
+        if tool == "write_file":
+            self.file_writes[args["path"]] = args["content"]
+
         loop = asyncio.get_event_loop()
 
         #waiting for websocket to execute and resolve future, resumes after future resolved

@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from app.agent import AgentSession
+from app.db import get_or_create_project, load_files, save_files, upsert_user
 
 load_dotenv()
 
@@ -17,21 +18,41 @@ _client = anthropic.AsyncAnthropic(api_key=os.environ.get("ANTHROPIC_API_KEY", "
 
 
 @router.websocket("/ws")
-async def websocket_endpoint(ws: WebSocket) -> None:
+async def websocket_endpoint(
+    ws: WebSocket,
+    user_id: str = "anonymous",
+    project_id: str | None = None,
+) -> None:
     await ws.accept()
+
+    # Ensure user exists before creating project (satisfies FK constraint)
+    await upsert_user(user_id)
+
+    # Resolve project — use provided project_id or fall back to get_or_create
+    if not project_id:
+        project_id = await get_or_create_project(user_id)
+
+    # Load persisted files and send to frontend before agent starts
+    saved_files = await load_files(project_id)
+    if saved_files:
+        await ws.send_json({"type": "load_files", "files": saved_files})
 
     session = AgentSession(_client)
     current_task: asyncio.Task | None = None
 
     #TWO DIFFERENT DIRECTIONS
     #passed as a callable function to agent, so agent can call over websocket to frontend in agent.py
-
     async def send(msg: dict) -> None:
         try:
             await ws.send_json(msg)
         except Exception:
             pass
-    ##FUTURE: Rewrite Send to forward tools to database instead of browser, and write to webContainer on fileWrites only
+
+        # After the full turn completes, flush accumulated writes to DB then reset
+        if msg["type"] == "assistant_message" and session.file_writes:
+            await save_files(project_id, dict(session.file_writes))  # type: ignore[arg-type]
+            session.file_writes.clear()
+    ##FUTURE: project_id should come from frontend once project selection UI exists
 
     async def run_agent(content: str) -> None:
         try:

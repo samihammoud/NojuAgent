@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useAuth } from "@clerk/clerk-react";
 import { getWebContainer } from "./webcontainer";
 import { defaultEditorFiles } from "./previewFiles";
 import {
@@ -61,6 +62,7 @@ async function executeTool(
 }
 
 export function useAgent() {
+  const { userId } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([WELCOME]);
   const [isConnected, setIsConnected] = useState(false);
   const [wcReady, setWcReady] = useState(false);
@@ -75,7 +77,8 @@ export function useAgent() {
 
   useEffect(() => {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const ws = new WebSocket(`${protocol}//${window.location.host}/api/ws`);
+    const uid = userId ?? "anonymous";
+    const ws = new WebSocket(`${protocol}//${window.location.host}/api/ws?user_id=${uid}`);
     wsRef.current = ws;
 
     ws.onopen = () => setIsConnected(true);
@@ -84,7 +87,14 @@ export function useAgent() {
     ws.onmessage = async (event: MessageEvent) => {
       const msg = JSON.parse(event.data as string) as Record<string, unknown>;
 
-      if (msg.type === "tool_call") {
+      if (msg.type === "load_files") {
+        const files = msg.files as Record<string, string>;
+        setOpenFiles((prev) => ({ ...prev, ...files }));
+        const wc = await getWebContainer();
+        for (const [path, content] of Object.entries(files)) {
+          await toolWriteFile(wc, path, content);
+        }
+      } else if (msg.type === "tool_call") {
         const label = toolLabel(
           msg.tool as string,
           msg.arguments as Record<string, string>
@@ -193,7 +203,7 @@ export function useAgent() {
       }
       wsRef.current = null;
     };
-  }, []);
+  }, [userId]);
 
   async function onLoadFile(path: string): Promise<string> {
     if (openFiles[path] !== undefined) return openFiles[path];

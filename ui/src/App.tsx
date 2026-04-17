@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { SignedIn, SignedOut, SignIn } from "@clerk/clerk-react";
 import Header from "./components/Header";
 import Chat from "./components/Chat";
 import WorkspacePanel from "./components/WorkspacePanel";
+import Dashboard from "./components/Dashboard";
 import { useAgent } from "./lib/useAgent";
 
 function AuthScreen() {
@@ -18,7 +20,7 @@ function AuthScreen() {
   );
 }
 
-function MainApp() {
+function MainApp({ projectId }: { projectId: string }) {
   const {
     messages,
     sendMessage,
@@ -27,7 +29,7 @@ function MainApp() {
     activeFile,
     setActiveFile,
     onLoadFile,
-  } = useAgent();
+  } = useAgent(projectId);
 
   return (
     <div className="app">
@@ -49,6 +51,16 @@ function MainApp() {
   );
 }
 
+function SignedInApp() {
+  const [projectId, setProjectId] = useState<string | null>(null);
+
+  if (!projectId) {
+    return <Dashboard onSelectProject={setProjectId} />;
+  }
+
+  return <MainApp projectId={projectId} />;
+}
+
 export default function App() {
   return (
     <>
@@ -56,7 +68,7 @@ export default function App() {
         <AuthScreen />
       </SignedOut>
       <SignedIn>
-        <MainApp />
+        <SignedInApp />
       </SignedIn>
     </>
   );

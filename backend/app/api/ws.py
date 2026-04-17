@@ -5,10 +5,9 @@ import os
 import anthropic
 from dotenv import load_dotenv
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from pydantic import BaseModel
 
 from app.agent import AgentSession
-from app.db import create_project, list_projects, load_files, save_files, upsert_user
+from app.db import load_files, save_files
 
 load_dotenv()
 
@@ -16,23 +15,6 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 _client = anthropic.AsyncAnthropic(api_key=os.environ.get("ANTHROPIC_API_KEY", ""))
-
-
-class CreateProjectRequest(BaseModel):
-    user_id: str
-    name: str = "My App"
-
-
-@router.get("/projects")
-async def get_projects(user_id: str):
-    return await list_projects(user_id)
-
-
-@router.post("/projects")
-async def post_project(body: CreateProjectRequest):
-    await upsert_user(body.user_id)
-    project_id = await create_project(body.user_id, body.name)
-    return {"project_id": project_id}
 
 
 @router.websocket("/ws")
@@ -61,9 +43,8 @@ async def websocket_endpoint(
 
         # After the full turn completes, flush accumulated writes to DB then reset
         if msg["type"] == "assistant_message" and session.file_writes:
-            await save_files(project_id, dict(session.file_writes))  # type: ignore[arg-type]
+            await save_files(project_id, dict(session.file_writes))
             session.file_writes.clear()
-    ##FUTURE: project_id should come from frontend once project selection UI exists
 
     async def run_agent(content: str) -> None:
         try:
@@ -72,9 +53,8 @@ async def websocket_endpoint(
             logger.exception("Agent error")
             await send({"type": "error", "message": str(exc)})
 
-
-        #websocket is either receiving a user message or a tool response. If a user message, we start an agent session.
-        #looping because always waiting
+    #websocket is either receiving a user message or a tool response. If a user message, we start an agent session.
+    #looping because always waiting
     try:
         while True:
             raw = await ws.receive_json()
@@ -98,7 +78,6 @@ async def websocket_endpoint(
                     raw.get("tool_use_id", ""),
                     raw.get("result", ""),
                 )
-
 
     except WebSocketDisconnect:
         logger.info("Client disconnected")

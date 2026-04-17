@@ -61,7 +61,7 @@ async function executeTool(
   }
 }
 
-export function useAgent() {
+export function useAgent(projectId: string) {
   const { userId } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([WELCOME]);
   const [isConnected, setIsConnected] = useState(false);
@@ -78,7 +78,7 @@ export function useAgent() {
   useEffect(() => {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const uid = userId ?? "anonymous";
-    const ws = new WebSocket(`${protocol}//${window.location.host}/api/ws?user_id=${uid}`);
+    const ws = new WebSocket(`${protocol}//${window.location.host}/api/ws?user_id=${uid}&project_id=${projectId}`);
     wsRef.current = ws;
 
     ws.onopen = () => setIsConnected(true);
@@ -203,7 +203,7 @@ export function useAgent() {
       }
       wsRef.current = null;
     };
-  }, [userId]);
+  }, [userId, projectId]);
 
   async function onLoadFile(path: string): Promise<string> {
     if (openFiles[path] !== undefined) return openFiles[path];

@@ -5,9 +5,10 @@ import os
 import anthropic
 from dotenv import load_dotenv
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from pydantic import BaseModel
 
 from app.agent import AgentSession
-from app.db import get_or_create_project, load_files, save_files, upsert_user
+from app.db import create_project, list_projects, load_files, save_files, upsert_user
 
 load_dotenv()
 
@@ -17,20 +18,30 @@ router = APIRouter()
 _client = anthropic.AsyncAnthropic(api_key=os.environ.get("ANTHROPIC_API_KEY", ""))
 
 
+class CreateProjectRequest(BaseModel):
+    user_id: str
+    name: str = "My App"
+
+
+@router.get("/projects")
+async def get_projects(user_id: str):
+    return await list_projects(user_id)
+
+
+@router.post("/projects")
+async def post_project(body: CreateProjectRequest):
+    await upsert_user(body.user_id)
+    project_id = await create_project(body.user_id, body.name)
+    return {"project_id": project_id}
+
+
 @router.websocket("/ws")
 async def websocket_endpoint(
     ws: WebSocket,
-    user_id: str = "anonymous",
-    project_id: str | None = None,
+    user_id: str,
+    project_id: str,
 ) -> None:
     await ws.accept()
-
-    # Ensure user exists before creating project (satisfies FK constraint)
-    await upsert_user(user_id)
-
-    # Resolve project — use provided project_id or fall back to get_or_create
-    if not project_id:
-        project_id = await get_or_create_project(user_id)
 
     # Load persisted files and send to frontend before agent starts
     saved_files = await load_files(project_id)

@@ -19,25 +19,41 @@ async def upsert_user(user_id: str, email: str | None = None) -> None:
     ).execute()
 
 
-async def get_or_create_project(user_id: str, name: str = "My App") -> str:
-    """Returns project_id. Creates one if none exists for this user."""
-    client = get_client()
+async def create_project(user_id: str, name: str = "My App") -> str:
+    """Creates a new project and returns its project_id."""
     result = (
-        client.table("projects")
-        .select("id")
-        .eq("user_id", user_id)
-        .limit(1)
-        .execute()
-    )
-    if result.data:
-        return result.data[0]["id"]
-
-    created = (
-        client.table("projects")
+        get_client()
+        .table("projects")
         .insert({"user_id": user_id, "name": name})
         .execute()
     )
-    return created.data[0]["id"]
+    return result.data[0]["id"]
+
+
+async def get_project(project_id: str) -> dict | None:
+    """Fetch a project by its id."""
+    result = (
+        get_client()
+        .table("projects")
+        .select("id,name,user_id,created_at")
+        .eq("id", project_id)
+        .limit(1)
+        .execute()
+    )
+    return result.data[0] if result.data else None
+
+
+async def list_projects(user_id: str) -> list[dict]:
+    """List all projects for a user."""
+    result = (
+        get_client()
+        .table("projects")
+        .select("id,name,created_at")
+        .eq("user_id", user_id)
+        .order("created_at", desc=True)
+        .execute()
+    )
+    return result.data
 
 
 async def save_files(project_id: str, files: dict[str, str]) -> None:

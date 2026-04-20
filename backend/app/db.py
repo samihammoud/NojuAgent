@@ -19,6 +19,7 @@ async def upsert_user(user_id: str, email: str | None = None) -> None:
     ).execute()
 
 
+##ID generation happens in schema
 async def create_project(user_id: str, name: str = "My App") -> str:
     """Creates a new project and returns its project_id."""
     result = (

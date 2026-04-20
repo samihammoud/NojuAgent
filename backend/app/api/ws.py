@@ -18,7 +18,7 @@ _client = anthropic.AsyncAnthropic(api_key=os.environ.get("ANTHROPIC_API_KEY", "
 
 
 @router.websocket("/ws")
-async def websocket_endpoint(
+async def thisendpoint(
     ws: WebSocket,
     user_id: str,
     project_id: str,

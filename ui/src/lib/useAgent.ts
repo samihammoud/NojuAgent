@@ -44,7 +44,7 @@ function toolLabel(tool: string, args: Record<string, string>): string {
 
 async function executeTool(
   tool: string,
-  args: Record<string, string>
+  args: Record<string, string>,
 ): Promise<string> {
   const wc = await getWebContainer();
   switch (tool) {
@@ -61,12 +61,15 @@ async function executeTool(
   }
 }
 
+//Requires projectID to pass to the WebSocket, so backend knows what files to load/send to the webContainer.
+//WebContainer is just a FS, only responsible for showing what it is given on mount
 export function useAgent(projectId: string) {
   const { userId } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([WELCOME]);
   const [isConnected, setIsConnected] = useState(false);
   const [wcReady, setWcReady] = useState(false);
-  const [openFiles, setOpenFiles] = useState<Record<string, string>>(defaultEditorFiles);
+  const [openFiles, setOpenFiles] =
+    useState<Record<string, string>>(defaultEditorFiles);
   const [activeFile, setActiveFile] = useState<string>("src/App.jsx");
   const wsRef = useRef<WebSocket | null>(null);
 
@@ -78,12 +81,15 @@ export function useAgent(projectId: string) {
   useEffect(() => {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const uid = userId ?? "anonymous";
-    const ws = new WebSocket(`${protocol}//${window.location.host}/api/ws?user_id=${uid}&project_id=${projectId}`);
+    const ws = new WebSocket(
+      `${protocol}//${window.location.host}/api/ws?user_id=${uid}&project_id=${projectId}`,
+    );
     wsRef.current = ws;
 
     ws.onopen = () => setIsConnected(true);
     ws.onclose = () => setIsConnected(false);
 
+    //callback: fires when backend sends a message
     ws.onmessage = async (event: MessageEvent) => {
       const msg = JSON.parse(event.data as string) as Record<string, unknown>;
 
@@ -97,7 +103,7 @@ export function useAgent(projectId: string) {
       } else if (msg.type === "tool_call") {
         const label = toolLabel(
           msg.tool as string,
-          msg.arguments as Record<string, string>
+          msg.arguments as Record<string, string>,
         );
         console.log("[tool_call]", msg.tool, msg.arguments);
         setMessages((prev) => {
@@ -110,7 +116,7 @@ export function useAgent(projectId: string) {
 
         const result = await executeTool(
           msg.tool as string,
-          msg.arguments as Record<string, string>
+          msg.arguments as Record<string, string>,
         );
         console.log("[tool_result]", msg.tool, result.slice(0, 200));
 
@@ -126,7 +132,7 @@ export function useAgent(projectId: string) {
             type: "tool_result",
             tool_use_id: msg.tool_use_id,
             result,
-          })
+          }),
         );
       } else if (msg.type === "assistant_message") {
         setMessages((prev) => {
@@ -168,7 +174,7 @@ export function useAgent(projectId: string) {
                   updates[f] = content;
                 } catch {}
               }
-            })
+            }),
           );
           if (Object.keys(updates).length > 0) {
             setOpenFiles((prev) => ({ ...prev, ...updates }));
@@ -217,6 +223,7 @@ export function useAgent(projectId: string) {
     }
   }
 
+  //closure for chat component
   function sendMessage(content: string) {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
 

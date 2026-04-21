@@ -135,7 +135,7 @@ class AgentSession:
 
         while True:
             payload = {
-                "model": "claude-opus-4-6",
+                "model": "claude-3-haiku-20240307",
                 "max_tokens": 16000,
                 "system": SYSTEM_PROMPT,
                 "tools": TOOLS,

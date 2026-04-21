@@ -167,7 +167,7 @@ class AgentSession:
                     (b.text for b in response.content if b.type == "text" and b.text),
                     "Done.",
                 )
-                await send({"type": "assistant_message", "content": final_text})
+                await send({"type": "turn_complete", "content": final_text})
                 break
 
             #call tool over websocket
@@ -195,5 +195,5 @@ class AgentSession:
                     (b.text for b in response.content if b.type == "text" and b.text),
                     "Done.",
                 )
-                await send({"type": "assistant_message", "content": final_text})
+                await send({"type": "turn_complete", "content": final_text})
                 break

@@ -33,16 +33,16 @@ async def thisendpoint(
     session = AgentSession(_client)
     current_task: asyncio.Task | None = None
 
-    #TWO DIFFERENT DIRECTIONS
-    #passed as a callable function to agent, so agent can call over websocket to frontend in agent.py
+    #closure in agent session
     async def send(msg: dict) -> None:
         try:
+            #forward to frontend
             await ws.send_json(msg)
         except Exception:
             pass
 
         # After the full turn completes, flush accumulated writes to DB then reset
-        if msg["type"] == "assistant_message" and session.file_writes:
+        if msg["type"] == "turn_complete" and session.file_writes:
             await save_files(project_id, dict(session.file_writes))
             session.file_writes.clear()
 

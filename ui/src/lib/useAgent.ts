@@ -134,7 +134,7 @@ export function useAgent(projectId: string) {
             result,
           }),
         );
-      } else if (msg.type === "assistant_message") {
+      } else if (msg.type === "turn_complete") {
         setMessages((prev) => {
           const last = prev[prev.length - 1];
           if (last?.status === "thinking") {

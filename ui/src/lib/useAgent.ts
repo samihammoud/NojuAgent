@@ -72,7 +72,7 @@ export function useAgent(projectId: string) {
     useState<Record<string, string>>(defaultEditorFiles);
   const [activeFile, setActiveFile] = useState<string>("src/App.jsx");
   const wsRef = useRef<WebSocket | null>(null);
-  // Always mirrors openFiles state so the ws.onmessage closure can read current files
+  // Always mirrors openFiles state so the wsRef.current.onmessage closure can read current files
   const openFilesRef = useRef<Record<string, string>>(defaultEditorFiles);
 
   // Track WebContainer readiness

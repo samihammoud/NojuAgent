@@ -7,7 +7,6 @@ from dotenv import load_dotenv
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from app.agent import AgentSession
-from app.db import load_files, save_files
 
 load_dotenv()
 
@@ -25,11 +24,6 @@ async def thisendpoint(
 ) -> None:
     await ws.accept()
 
-    # Load persisted files and send to frontend before agent starts
-    saved_files = await load_files(project_id)
-    if saved_files:
-        await ws.send_json({"type": "load_files", "files": saved_files})
-
     session = AgentSession(_client)
     current_task: asyncio.Task | None = None
 
@@ -40,11 +34,6 @@ async def thisendpoint(
             await ws.send_json(msg)
         except Exception:
             pass
-
-        # After the full turn completes, flush accumulated writes to DB then reset
-        if msg["type"] == "turn_complete" and session.file_writes:
-            await save_files(project_id, dict(session.file_writes))
-            session.file_writes.clear()
 
     async def run_agent(content: str) -> None:
         try:

@@ -72,11 +72,37 @@ export function useAgent(projectId: string) {
     useState<Record<string, string>>(defaultEditorFiles);
   const [activeFile, setActiveFile] = useState<string>("src/App.jsx");
   const wsRef = useRef<WebSocket | null>(null);
+  // Always mirrors openFiles state so the wsRef.current.onmessage closure can read current files
+  const openFilesRef = useRef<Record<string, string>>(defaultEditorFiles);
 
   // Track WebContainer readiness
   useEffect(() => {
     getWebContainer().then(() => setWcReady(true));
   }, []);
+
+  // Load persisted files from DB on mount and write them into WebContainer
+  useEffect(() => {
+    if (!projectId) return;
+    (async () => {
+      try {
+        const res = await fetch(`/api/files?project_id=${projectId}`);
+        if (!res.ok) return;
+        const files = (await res.json()) as Record<string, string>;
+        if (!files || Object.keys(files).length === 0) return;
+        setOpenFiles((prev) => {
+          const next = { ...prev, ...files };
+          openFilesRef.current = next;
+          return next;
+        });
+        const wc = await getWebContainer();
+        for (const [path, content] of Object.entries(files)) {
+          await toolWriteFile(wc, path, content);
+        }
+      } catch (err) {
+        console.error("[files] failed to load persisted files:", err);
+      }
+    })();
+  }, [projectId]);
 
   useEffect(() => {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -93,14 +119,7 @@ export function useAgent(projectId: string) {
     ws.onmessage = async (event: MessageEvent) => {
       const msg = JSON.parse(event.data as string) as Record<string, unknown>;
 
-      if (msg.type === "load_files") {
-        const files = msg.files as Record<string, string>;
-        setOpenFiles((prev) => ({ ...prev, ...files }));
-        const wc = await getWebContainer();
-        for (const [path, content] of Object.entries(files)) {
-          await toolWriteFile(wc, path, content);
-        }
-      } else if (msg.type === "tool_call") {
+      if (msg.type === "tool_call") {
         const label = toolLabel(
           msg.tool as string,
           msg.arguments as Record<string, string>,
@@ -123,7 +142,11 @@ export function useAgent(projectId: string) {
         // If agent wrote a file, update the editor cache
         if (msg.tool === "write_file") {
           const args = msg.arguments as Record<string, string>;
-          setOpenFiles((prev) => ({ ...prev, [args.path]: args.content }));
+          setOpenFiles((prev) => {
+            const next = { ...prev, [args.path]: args.content };
+            openFilesRef.current = next;
+            return next;
+          });
           setActiveFile(args.path);
         }
 
@@ -158,6 +181,16 @@ export function useAgent(projectId: string) {
             },
           ];
         });
+
+        // Flush all current files to DB
+        const snapshot = openFilesRef.current;
+        if (Object.keys(snapshot).length > 0) {
+          fetch("/api/files", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ project_id: projectId, files: snapshot }),
+          }).catch((err) => console.error("[files] failed to save files:", err));
+        }
 
         // Refresh file tree after agent turn
         try {

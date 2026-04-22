@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import projects, ws
+from app.api import files, projects, ws
 
 app = FastAPI(title="NojuAgent API", version="0.1.0")
 
@@ -14,6 +14,7 @@ app.add_middleware(
 )
 
 app.include_router(projects.router, prefix="/api")
+app.include_router(files.router, prefix="/api")
 app.include_router(ws.router, prefix="/api")
 
 

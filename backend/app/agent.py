@@ -93,6 +93,7 @@ TOOLS: list[dict] = [
 ]
 
 MAX_MESSAGES = 30
+MAX_ITERATIONS = 25
 
 SendFn = Callable[[dict], Awaitable[None]]
 
@@ -147,7 +148,15 @@ class AgentSession:
         paths = await list_paths(self.project_id)
         system_prompt = SYSTEM_PROMPT_BASE + f"\n\n## Current project files\n{_render_tree(paths)}"
 
+        iterations = 0
         while True:
+            iterations += 1
+            if iterations > MAX_ITERATIONS:
+                await send({
+                    "type": "turn_complete",
+                    "content": f"Hit iteration cap ({MAX_ITERATIONS} tool calls). Let me know how you'd like to proceed.",
+                })
+                break
             compact_messages(self.messages)
             truncate_history(self.messages, MAX_MESSAGES)
             payload = {

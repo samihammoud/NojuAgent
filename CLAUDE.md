@@ -8,6 +8,8 @@ Noju is a Lovable-style AI web-builder. Users describe what they want; a Claude 
 ```
 ui/ (React + Vite, port 3000)
   └─ useAgent.ts       WebSocket hook — sends messages, dispatches tool calls to WebContainer, persists files
+                         accepts AgentOptions { initialMessages, onPersist } — calls onPersist on user send and turn_complete
+  └─ useMessages.ts    REST hook — loads message history on mount, exposes saveMessage (the onPersist callback)
   └─ webcontainerTools.ts  Executes list_files / read_file / write_file / run_command inside WebContainer
   └─ previewFiles.ts   Initial virtual filesystem seeded into WebContainer on load
 
@@ -16,7 +18,8 @@ backend/ (FastAPI + Python, port 8000)
   └─ app/api/ws.py     WebSocket endpoint /api/ws — routes user_message → agent, tool_result → Future
   └─ app/api/projects.py  REST: GET/POST /api/projects
   └─ app/api/files.py  REST: GET/POST /api/files — load and save project files
-  └─ app/db.py         Supabase client — users, projects, files tables
+  └─ app/api/messages.py  REST: GET/POST /api/projects/{project_id}/messages — load and save chat messages
+  └─ app/db.py         Supabase client — users, projects, files, messages tables
   └─ app/main.py       FastAPI app, CORS, router registration
 ```
 
@@ -26,13 +29,20 @@ backend/ (FastAPI + Python, port 8000)
 3. Frontend executes tool in WebContainer → sends `{ type: "tool_result", tool_use_id, result }` back
 4. Backend resolves the `asyncio.Future`, agent loop continues
 5. Agent finishes → backend sends `{ type: "turn_complete", content }`
-6. Frontend receives `turn_complete` → POSTs all current files to `POST /api/files`
+6. Frontend receives `turn_complete` → POSTs all current files to `POST /api/files` and assistant message to `POST /api/projects/{id}/messages`
 
 ### File persistence flow
 - **On project load:** frontend calls `GET /api/files?project_id=...` → mounts returned files into WebContainer
 - **During agent turn:** `write_file` tool calls execute immediately in WebContainer (agent loop unblocked)
 - **After turn_complete:** frontend POSTs snapshot of all open files to `POST /api/files` → Supabase upsert
 - The WebSocket is not involved in file persistence at all
+
+### Message persistence flow
+- **On project load:** `useMessages(projectId)` fetches `GET /api/projects/{id}/messages` → seeds `initialMessages`
+- `App.tsx` gates on `useMessages.loaded` before rendering the workspace, so `useAgent` always receives the full history as its initial state
+- `useMessages.saveMessage` is passed to `useAgent` as the `onPersist` callback — `useAgent` has no knowledge of the REST layer
+- **On user send:** `useAgent.sendMessage` calls `onPersist("user", content)` → POST to messages API
+- **On turn_complete:** `useAgent` calls `onPersist("assistant", content)` → POST to messages API
 
 ## Running locally
 
@@ -62,8 +72,9 @@ VITE_CLERK_PUBLISHABLE_KEY=...
 ## Key design decisions
 
 - **Tool calls bridge two runtimes.** The agent (Python) cannot touch the browser filesystem directly. It sends tool calls over WebSocket; the frontend executes them in WebContainer and returns results. The asyncio.Future in `AgentSession._pending` suspends the Python coroutine while waiting.
-- **One AgentSession per WebSocket connection.** Conversation history (`self.messages`) lives in memory for the lifetime of the connection. Re-connecting starts a fresh session.
+- **One AgentSession per WebSocket connection.** Conversation history (`self.messages`) lives in memory for the lifetime of the connection. Re-connecting starts a fresh session. Message history for continuity is loaded from the DB by the frontend and passed as `initialMessages` to `useAgent`.
 - **File persistence is frontend-owned.** The WebSocket has no knowledge of the DB. On `turn_complete`, the frontend POSTs its full `openFiles` snapshot to `POST /api/files`. On mount, it fetches `GET /api/files` and seeds WebContainer. This keeps the WebSocket handler stateless with respect to storage.
+- **Message persistence uses a callback seam.** `useAgent` calls `onPersist(role, content)` at the right moments but has no knowledge of the REST API. `useMessages` owns the fetch logic and passes `saveMessage` as the callback. They are composed in `App.tsx` via the `Workspace` component.
 - **Auth via Clerk.** The frontend uses Clerk for auth. The `user_id` (Clerk user ID) is passed as a query param on the WebSocket URL and on REST calls; backend upserts it into Supabase on first project creation.
 
 ## Database schema (Supabase)
@@ -73,6 +84,7 @@ VITE_CLERK_PUBLISHABLE_KEY=...
 | `users` | `id` (Clerk user ID), `email` |
 | `projects` | `id` (UUID, generated), `user_id`, `name`, `created_at` |
 | `files` | `project_id`, `path`, `content` — unique on `(project_id, path)` |
+| `messages` | `id` (UUID), `project_id`, `role` (user\|assistant), `content` (jsonb), `created_at` — indexed on `(project_id, created_at)` |
 
 ## Tech stack
 

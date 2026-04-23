@@ -191,6 +191,7 @@ export function useAgent(
           ];
         });
 
+        //save assistant message to DB
         onPersist?.("assistant", msg.content as string);
 
         // Flush all current files to DB
@@ -200,7 +201,9 @@ export function useAgent(
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ project_id: projectId, files: snapshot }),
-          }).catch((err) => console.error("[files] failed to save files:", err));
+          }).catch((err) =>
+            console.error("[files] failed to save files:", err),
+          );
         }
 
         // Refresh file tree after agent turn

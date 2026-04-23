@@ -5,7 +5,11 @@ from collections.abc import Awaitable, Callable
 
 import anthropic
 
+from app.context import compact_messages
+
 logger = logging.getLogger(__name__)
+
+_log = open("agent_debug.log", "a", buffering=1)
 
 SYSTEM_PROMPT = """You are Noju, an expert web-building assistant. You help users build and \
 modify React web applications that run in a browser-based virtual filesystem powered by Vite.
@@ -100,6 +104,7 @@ class AgentSession:
             future.set_result(result)
 
 
+
     async def _call_tool(
         self, send: SendFn, tool_use_id: str, tool: str, args: dict
     ) -> str:
@@ -130,6 +135,7 @@ class AgentSession:
         self.messages.append({"role": "user", "content": user_message})
 
         while True:
+            compact_messages(self.messages)
             payload = {
                 "model": "claude-haiku-4-5-20251001",
                 "max_tokens": 16000,
@@ -137,9 +143,11 @@ class AgentSession:
                 "tools": TOOLS,
                 "messages": self.messages,
             }
-            # print(json.dumps(payload, indent=2), flush=True)
+            _log.write(json.dumps(payload, indent=2) + "\n")
 
             response = await self.client.messages.create(**payload)  # type: ignore[arg-type]
+
+            _log.write(json.dumps(response.model_dump(), indent=2) + "\n")
 
             # Build structured assistant content for history
             assistant_content: list[dict] = []
@@ -157,13 +165,13 @@ class AgentSession:
                     )
 
             self.messages.append({"role": "assistant", "content": assistant_content})
-            print(self.messages, flush=True)
 
             if response.stop_reason == "end_turn":
                 final_text = next(
                     (b.text for b in response.content if b.type == "text" and b.text),
                     "Done.",
                 )
+                _log.write(json.dumps({"final_assistant_message": final_text}, indent=2) + "\n")
                 await send({"type": "turn_complete", "content": final_text})
                 break
 

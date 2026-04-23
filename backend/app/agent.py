@@ -137,7 +137,7 @@ class AgentSession:
                 "tools": TOOLS,
                 "messages": self.messages,
             }
-            print(json.dumps(payload, indent=2), flush=True)
+            # print(json.dumps(payload, indent=2), flush=True)
 
             response = await self.client.messages.create(**payload)  # type: ignore[arg-type]
 
@@ -157,6 +157,7 @@ class AgentSession:
                     )
 
             self.messages.append({"role": "assistant", "content": assistant_content})
+            print(self.messages, flush=True)
 
             if response.stop_reason == "end_turn":
                 final_text = next(

@@ -79,3 +79,21 @@ async def load_files(project_id: str) -> dict[str, str]:
         .execute()
     )
     return {row["path"]: row["content"] for row in result.data}
+
+
+async def append_message(project_id: str, role: str, content) -> None:
+    get_client().table("messages").insert(
+        {"project_id": project_id, "role": role, "content": content}
+    ).execute()
+
+
+async def load_messages(project_id: str) -> list[dict]:
+    result = (
+        get_client()
+        .table("messages")
+        .select("role,content,created_at")
+        .eq("project_id", project_id)
+        .order("created_at")
+        .execute()
+    )
+    return result.data

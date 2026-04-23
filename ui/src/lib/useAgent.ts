@@ -61,11 +61,20 @@ async function executeTool(
   }
 }
 
+interface AgentOptions {
+  initialMessages?: ChatMessage[];
+  // onPersist is the callback for posting user and assistant messages to the DB
+  onPersist?: (role: "user" | "assistant", content: string) => void;
+}
+
 //Requires projectID to pass to the WebSocket, so backend knows what files to load/send to the webContainer.
 //WebContainer is just a FS, only responsible for showing what it is given on mount
-export function useAgent(projectId: string) {
+export function useAgent(
+  projectId: string,
+  { initialMessages = [WELCOME], onPersist }: AgentOptions = {},
+) {
   const { userId } = useAuth();
-  const [messages, setMessages] = useState<ChatMessage[]>([WELCOME]);
+  const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [isConnected, setIsConnected] = useState(false);
   const [wcReady, setWcReady] = useState(false);
   const [openFiles, setOpenFiles] =
@@ -182,6 +191,8 @@ export function useAgent(projectId: string) {
           ];
         });
 
+        onPersist?.("assistant", msg.content as string);
+
         // Flush all current files to DB
         const snapshot = openFilesRef.current;
         if (Object.keys(snapshot).length > 0) {
@@ -275,6 +286,7 @@ export function useAgent(projectId: string) {
 
     setMessages((prev) => [...prev, userMsg, thinkingMsg]);
     wsRef.current.send(JSON.stringify({ type: "user_message", content }));
+    onPersist?.("user", content);
   }
 
   return {

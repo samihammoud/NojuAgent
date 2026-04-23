@@ -4,7 +4,8 @@ import Header from "./components/Header";
 import Chat from "./components/Chat";
 import WorkspacePanel from "./components/WorkspacePanel";
 import Dashboard from "./components/Dashboard";
-import { useAgent } from "./lib/useAgent";
+import { useAgent, type ChatMessage } from "./lib/useAgent";
+import { useMessages } from "./lib/useMessages";
 
 function AuthScreen() {
   return (
@@ -20,7 +21,15 @@ function AuthScreen() {
   );
 }
 
-function MainApp({ projectId }: { projectId: string }) {
+function Workspace({
+  projectId,
+  initialMessages,
+  saveMessage,
+}: {
+  projectId: string;
+  initialMessages: ChatMessage[];
+  saveMessage: (role: "user" | "assistant", content: string) => void;
+}) {
   const {
     messages,
     sendMessage,
@@ -29,7 +38,7 @@ function MainApp({ projectId }: { projectId: string }) {
     activeFile,
     setActiveFile,
     onLoadFile,
-  } = useAgent(projectId);
+  } = useAgent(projectId, { initialMessages, onPersist: saveMessage });
 
   return (
     <div className="app">
@@ -49,6 +58,12 @@ function MainApp({ projectId }: { projectId: string }) {
       </div>
     </div>
   );
+}
+
+function MainApp({ projectId }: { projectId: string }) {
+  const { initialMessages, saveMessage, loaded } = useMessages(projectId);
+  if (!loaded) return null;
+  return <Workspace projectId={projectId} initialMessages={initialMessages} saveMessage={saveMessage} />;
 }
 
 function SignedInApp() {

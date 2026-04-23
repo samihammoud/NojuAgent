@@ -5,7 +5,7 @@ from collections.abc import Awaitable, Callable
 
 import anthropic
 
-from app.context import compact_messages
+from app.context import compact_messages, truncate_history
 
 logger = logging.getLogger(__name__)
 
@@ -83,8 +83,11 @@ TOOLS: list[dict] = [
             },
             "required": ["command"],
         },
+        "cache_control": {"type": "ephemeral"},
     },
 ]
+
+MAX_MESSAGES = 30
 
 SendFn = Callable[[dict], Awaitable[None]]
 
@@ -136,6 +139,7 @@ class AgentSession:
 
         while True:
             compact_messages(self.messages)
+            truncate_history(self.messages, MAX_MESSAGES)
             payload = {
                 "model": "claude-haiku-4-5-20251001",
                 "max_tokens": 16000,

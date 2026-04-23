@@ -1,13 +1,16 @@
-"""Strip stale file content from conversation history.
+"""Context window management: stubbing stale file content + sliding window truncation.
 
-Rule: walking newest → oldest, the first time we see a path, keep its content.
-Every older encounter of that same path gets stubbed. Reads and writes are
-treated the same — position in history decides which one wins.
+compact_messages — walking newest → oldest, the first time we see a path, keep its
+content. Every older encounter of that same path gets stubbed. Reads and writes are
+treated the same; position in history decides which one wins. A path that appears
+only once is always preserved.
 
-A path that appears only once is always preserved.
+tool_result blocks only carry a tool_use_id, so we first build a tool_use_id → path
+map, then use it to resolve results during the reverse walk.
 
-tool_result blocks only carry a tool_use_id, so we first build a
-tool_use_id → path map, then use it to resolve results during the reverse walk.
+truncate_history — caps total messages. Cannot slice mid-turn: a user "tool_result"
+message orphaned from its assistant "tool_use" makes the API reject the request.
+Safe cut boundaries are plain-text user messages (the start of a user turn).
 """
 
 STUB = "<superseded>"
@@ -51,3 +54,16 @@ def compact_messages(messages: list[dict]) -> None:
                     block["content"] = STUB
                 else:
                     seen.add(path)
+
+
+def truncate_history(messages: list[dict], max_messages: int) -> None:
+    if len(messages) <= max_messages:
+        return
+
+    cut = len(messages) - max_messages
+    while cut < len(messages):
+        msg = messages[cut]
+        if msg["role"] == "user" and isinstance(msg.get("content"), str):
+            del messages[:cut]
+            return
+        cut += 1

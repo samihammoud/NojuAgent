@@ -81,6 +81,18 @@ async def load_files(project_id: str) -> dict[str, str]:
     return {row["path"]: row["content"] for row in result.data}
 
 
+async def list_paths(project_id: str) -> list[str]:
+    """Return all file paths for a project (no content)."""
+    result = (
+        get_client()
+        .table("files")
+        .select("path")
+        .eq("project_id", project_id)
+        .execute()
+    )
+    return sorted(row["path"] for row in result.data)
+
+
 async def append_message(project_id: str, role: str, content) -> None:
     get_client().table("messages").insert(
         {"project_id": project_id, "role": role, "content": content}

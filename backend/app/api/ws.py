@@ -24,7 +24,7 @@ async def thisendpoint(
 ) -> None:
     await ws.accept()
 
-    session = AgentSession(_client)
+    session = AgentSession(_client, project_id)
     current_task: asyncio.Task | None = None
 
     #closure in agent session

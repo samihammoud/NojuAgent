@@ -6,12 +6,13 @@ from collections.abc import Awaitable, Callable
 import anthropic
 
 from app.context import compact_messages, truncate_history
+from app.db import list_paths
 
 logger = logging.getLogger(__name__)
 
 _log = open("agent_debug.log", "a", buffering=1)
 
-SYSTEM_PROMPT = """You are Noju, an expert web-building assistant. You help users build and \
+SYSTEM_PROMPT_BASE = """You are Noju, an expert web-building assistant. You help users build and \
 modify React web applications that run in a browser-based virtual filesystem powered by Vite.
 
 The project is a Vite + React app. The entry point is index.html → src/main.jsx → src/App.jsx.
@@ -19,21 +20,26 @@ Vite serves the app on port 3000 with hot module replacement — changes to file
 in the browser immediately without a full reload.
 
 You have four tools:
-- list_files: List files in a directory
+- list_files: List files in a directory (only call if the project files section below seems stale)
 - read_file: Read a file's contents
 - write_file: Write content to a file (creates or overwrites)
 - run_command: Run npm/npx commands (e.g. npm install chart.js)
 
 Rules:
-1. Always call list_files first to understand the current project structure
-2. Always read a file before writing it — never overwrite without reading first
-3. Place React components in src/components/, pages in src/pages/
-4. Use .jsx extension for all React component files
-5. Use relative imports between files (e.g. import Button from './components/Button.jsx')
-6. Before using any npm package, run: npm install <package-name>
-7. Do not use CDN imports — install packages via npm instead
-8. Keep individual files under 300 lines — extract sub-components when files grow large
-9. Keep your final reply brief — one or two sentences explaining what you built/changed"""
+1. Always read a file before writing it — never overwrite without reading first
+2. Place React components in src/components/, pages in src/pages/
+3. Use .jsx extension for all React component files
+4. Use relative imports between files (e.g. import Button from './components/Button.jsx')
+5. Before using any npm package, run: npm install <package-name>
+6. Do not use CDN imports — install packages via npm instead
+7. Keep individual files under 300 lines — extract sub-components when files grow large
+8. Keep your final reply brief — one or two sentences explaining what you built/changed"""
+
+
+def _render_tree(paths: list[str]) -> str:
+    if not paths:
+        return "(empty project — no files yet)"
+    return "\n".join(f"- {p}" for p in paths)
 
 TOOLS: list[dict] = [
     {
@@ -94,8 +100,9 @@ SendFn = Callable[[dict], Awaitable[None]]
 class AgentSession:
     """One ReAct session per WebSocket connection — holds conversation history."""
 
-    def __init__(self, client: anthropic.AsyncAnthropic) -> None:
+    def __init__(self, client: anthropic.AsyncAnthropic, project_id: str) -> None:
         self.client = client
+        self.project_id = project_id
         self.messages: list[dict] = []
         self._pending: dict[str, asyncio.Future[str]] = {}
 
@@ -135,6 +142,10 @@ class AgentSession:
     async def run(self, user_message: str, send: SendFn) -> None:
         """Run the ReAct loop for one user turn."""
         self.messages.append({"role": "user", "content": user_message})
+    
+        "append FS to system prompt beginning each turn"
+        paths = await list_paths(self.project_id)
+        system_prompt = SYSTEM_PROMPT_BASE + f"\n\n## Current project files\n{_render_tree(paths)}"
 
         while True:
             compact_messages(self.messages)
@@ -142,7 +153,7 @@ class AgentSession:
             payload = {
                 "model": "claude-haiku-4-5-20251001",
                 "max_tokens": 16000,
-                "system": SYSTEM_PROMPT,
+                "system": system_prompt,
                 "tools": TOOLS,
                 "messages": self.messages,
             }

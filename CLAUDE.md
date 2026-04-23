@@ -80,6 +80,7 @@ VITE_CLERK_PUBLISHABLE_KEY=...
 - **Context window management.** Before every Anthropic API call in the ReAct loop, `agent.py` runs `compact_messages` and `truncate_history` from [backend/app/context.py](backend/app/context.py):
   - `compact_messages` — walks history newest → oldest; for each file path, the first (= latest) `read_file` result or `write_file` input is kept, all older ones have their content replaced with `"<superseded>"`. Preserves tool_use_id pairings so the API doesn't reject orphaned blocks.
   - `truncate_history` — caps `self.messages` at `MAX_MESSAGES = 30`. Only cuts at plain-text user messages (turn boundaries) to avoid orphaning a `tool_result` from its `tool_use`.
+- **Dynamic system prompt with file tree.** `AgentSession` takes a `project_id` at construction. Before each API call, it runs `db.list_paths(project_id)` and appends `## Current project files\n- path1\n- path2 ...` to `SYSTEM_PROMPT_BASE`. This removes the "always call list_files first" rule — the agent already has the tree. `list_files` remains as a fallback tool. The tree is sourced from Supabase (stale within a turn since writes only persist on `turn_complete`), but the agent's own tool_use history covers files it created in the current turn.
 - **Debug logging.** Each API call's payload and response are appended as JSON to `backend/agent_debug.log` (line-buffered append). Watch `input_tokens` growth across turns to verify compaction — `<superseded>` markers in the payload confirm stale file content was stubbed.
 
 ## Database schema (Supabase)

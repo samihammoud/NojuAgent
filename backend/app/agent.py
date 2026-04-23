@@ -83,7 +83,6 @@ TOOLS: list[dict] = [
             },
             "required": ["command"],
         },
-        "cache_control": {"type": "ephemeral"},
     },
 ]
 

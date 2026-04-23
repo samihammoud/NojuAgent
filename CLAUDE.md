@@ -15,6 +15,7 @@ ui/ (React + Vite, port 3000)
 
 backend/ (FastAPI + Python, port 8000)
   └─ app/agent.py      AgentSession — ReAct loop over claude-haiku-4-5, suspends on tool calls via asyncio.Future
+  └─ app/context.py    Context window management — compact_messages (stub stale file content), truncate_history (sliding window)
   └─ app/api/ws.py     WebSocket endpoint /api/ws — routes user_message → agent, tool_result → Future
   └─ app/api/projects.py  REST: GET/POST /api/projects
   └─ app/api/files.py  REST: GET/POST /api/files — load and save project files
@@ -76,6 +77,10 @@ VITE_CLERK_PUBLISHABLE_KEY=...
 - **File persistence is frontend-owned.** The WebSocket has no knowledge of the DB. On `turn_complete`, the frontend POSTs its full `openFiles` snapshot to `POST /api/files`. On mount, it fetches `GET /api/files` and seeds WebContainer. This keeps the WebSocket handler stateless with respect to storage.
 - **Message persistence uses a callback seam.** `useAgent` calls `onPersist(role, content)` at the right moments but has no knowledge of the REST API. `useMessages` owns the fetch logic and passes `saveMessage` as the callback. They are composed in `App.tsx` via the `Workspace` component.
 - **Auth via Clerk.** The frontend uses Clerk for auth. The `user_id` (Clerk user ID) is passed as a query param on the WebSocket URL and on REST calls; backend upserts it into Supabase on first project creation.
+- **Context window management.** Before every Anthropic API call in the ReAct loop, `agent.py` runs `compact_messages` and `truncate_history` from [backend/app/context.py](backend/app/context.py):
+  - `compact_messages` — walks history newest → oldest; for each file path, the first (= latest) `read_file` result or `write_file` input is kept, all older ones have their content replaced with `"<superseded>"`. Preserves tool_use_id pairings so the API doesn't reject orphaned blocks.
+  - `truncate_history` — caps `self.messages` at `MAX_MESSAGES = 30`. Only cuts at plain-text user messages (turn boundaries) to avoid orphaning a `tool_result` from its `tool_use`.
+- **Debug logging.** Each API call's payload and response are appended as JSON to `backend/agent_debug.log` (line-buffered append). Watch `input_tokens` growth across turns to verify compaction — `<superseded>` markers in the payload confirm stale file content was stubbed.
 
 ## Database schema (Supabase)
 

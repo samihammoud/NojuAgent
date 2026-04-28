@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import type { WebContainer } from "@webcontainer/api";
 import { useAuth } from "@clerk/clerk-react";
 import { getWebContainer } from "./webcontainer";
 import { defaultEditorFiles } from "./previewFiles";
@@ -61,16 +62,17 @@ async function executeTool(
   }
 }
 
-const DEFAULT_PACKAGES = new Set(["react", "react-dom", "vite"]);
-
-function extraPackages(packageJson: string): string[] {
-  try {
-    const pkg = JSON.parse(packageJson) as { dependencies?: Record<string, string>; devDependencies?: Record<string, string> };
-    const all = { ...pkg.dependencies, ...pkg.devDependencies };
-    return Object.keys(all).filter((p) => !DEFAULT_PACKAGES.has(p));
-  } catch {
-    return [];
-  }
+async function snapshotFs(wc: WebContainer): Promise<Record<string, string>> {
+  const { files } = JSON.parse(await toolListFiles(wc, ".")) as { files: string[] };
+  const snapshot: Record<string, string> = {};
+  await Promise.all(
+    files
+      .filter((p) => p !== "pnpm-lock.yaml")
+      .map(async (p) => {
+        snapshot[p] = await wc.fs.readFile(p, "utf-8");
+      }),
+  );
+  return snapshot;
 }
 
 interface AgentOptions {
@@ -93,8 +95,6 @@ export function useAgent(
     useState<Record<string, string>>(defaultEditorFiles);
   const [activeFile, setActiveFile] = useState<string>("src/App.jsx");
   const wsRef = useRef<WebSocket | null>(null);
-  // Always mirrors openFiles state so the wsRef.current.onmessage closure can read current files
-  const openFilesRef = useRef<Record<string, string>>(defaultEditorFiles);
 
   // Fetch project files, wait for WebContainer, then write them in
   useEffect(() => {
@@ -105,27 +105,20 @@ export function useAgent(
         const files: Record<string, string> = res.ok ? (await res.json()) ?? {} : {};
         const wc = await getWebContainer();
 
-        // Install extra packages first so Vite never sees a broken import state
-        const savedPkg = files["package.json"];
-        if (savedPkg) {
-          const extras = extraPackages(savedPkg);
-          if (extras.length > 0) {
-            await toolRunCommand(wc, `pnpm add ${extras.join(" ")}`, 180_000);
-          }
+        // Restore the saved package.json first, then run pnpm install to sync
+        // node_modules. Source files are written after — Vite never sees an
+        // unresolved import because all deps are already in node_modules.
+        if (files["package.json"]) {
+          await toolWriteFile(wc, "package.json", files["package.json"]);
+          await toolRunCommand(wc, "pnpm install", 180_000);
         }
 
-        // Write source files after packages are ready (skip manifests)
-        const writable = Object.entries(files).filter(
-          ([p]) => p !== "package.json" && p !== "pnpm-lock.yaml"
-        );
-        for (const [path, content] of writable) {
+        for (const [path, content] of Object.entries(files)) {
+          if (path === "package.json") continue;
           await toolWriteFile(wc, path, content);
         }
-        if (writable.length > 0) {
-          const next = { ...defaultEditorFiles, ...Object.fromEntries(writable) };
-          openFilesRef.current = next;
-          setOpenFiles(next);
-        }
+        // Sync editor cache from the live FS — single source of truth
+        setOpenFiles(await snapshotFs(wc));
 
         setWcReady(true);
       } catch (err) {
@@ -169,14 +162,10 @@ export function useAgent(
         );
         console.log("[tool_result]", msg.tool, result.slice(0, 200));
 
-        // If agent wrote a file, update the editor cache
+        // If agent wrote a file, update the editor cache for immediate feedback
         if (msg.tool === "write_file") {
           const args = msg.arguments as Record<string, string>;
-          setOpenFiles((prev) => {
-            const next = { ...prev, [args.path]: args.content };
-            openFilesRef.current = next;
-            return next;
-          });
+          setOpenFiles((prev) => ({ ...prev, [args.path]: args.content }));
           setActiveFile(args.path);
         }
 
@@ -215,14 +204,13 @@ export function useAgent(
         //save assistant message to DB
         onPersist?.("assistant", msg.content as string);
 
-        // Flush all current files to DB, including live package.json from WebContainer
-        // (pnpm add updates it in-container but never goes through write_file)
-        const snapshot = { ...openFilesRef.current };
+        // Snapshot live WebContainer FS — single source of truth for both
+        // editor UI and Supabase persistence. Captures pnpm add side-effects
+        // on package.json and any files created by shell commands.
         try {
           const wc = await getWebContainer();
-          snapshot["package.json"] = await wc.fs.readFile("package.json", "utf-8");
-        } catch {}
-        if (Object.keys(snapshot).length > 0) {
+          const snapshot = await snapshotFs(wc);
+          setOpenFiles(snapshot);
           fetch("/api/files", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -230,30 +218,8 @@ export function useAgent(
           }).catch((err) =>
             console.error("[files] failed to save files:", err),
           );
-        }
-
-        // Refresh file tree after agent turn
-        try {
-          const wc = await getWebContainer();
-          const result = await toolListFiles(wc, ".");
-          const { files } = JSON.parse(result) as { files: string[] };
-          // Load content for any new files not yet in cache
-          const updates: Record<string, string> = {};
-          await Promise.all(
-            files.map(async (f) => {
-              if (!(f in openFiles)) {
-                try {
-                  const content = await wc.fs.readFile(f, "utf-8");
-                  updates[f] = content;
-                } catch {}
-              }
-            }),
-          );
-          if (Object.keys(updates).length > 0) {
-            setOpenFiles((prev) => ({ ...prev, ...updates }));
-          }
         } catch (err) {
-          console.error("[files] failed to refresh file tree:", err);
+          console.error("[files] snapshot failed:", err);
         }
       } else if (msg.type === "error") {
         setMessages((prev) => {

@@ -25,10 +25,12 @@ function Workspace({
   projectId,
   initialMessages,
   saveMessage,
+  onBack,
 }: {
   projectId: string;
   initialMessages: ChatMessage[];
   saveMessage: (role: "user" | "assistant", content: string) => void;
+  onBack: () => void;
 }) {
   const {
     messages,
@@ -42,7 +44,7 @@ function Workspace({
 
   return (
     <div className="app">
-      <Header />
+      <Header onBack={onBack} />
       <div className="main">
         <Chat
           messages={messages}
@@ -60,10 +62,10 @@ function Workspace({
   );
 }
 
-function MainApp({ projectId }: { projectId: string }) {
+function MainApp({ projectId, onBack }: { projectId: string; onBack: () => void }) {
   const { initialMessages, saveMessage, loaded } = useMessages(projectId);
   if (!loaded) return null;
-  return <Workspace projectId={projectId} initialMessages={initialMessages} saveMessage={saveMessage} />;
+  return <Workspace projectId={projectId} initialMessages={initialMessages} saveMessage={saveMessage} onBack={onBack} />;
 }
 
 function SignedInApp() {
@@ -73,7 +75,7 @@ function SignedInApp() {
     return <Dashboard onSelectProject={setProjectId} />;
   }
 
-  return <MainApp projectId={projectId} />;
+  return <MainApp projectId={projectId} onBack={() => setProjectId(null)} />;
 }
 
 export default function App() {

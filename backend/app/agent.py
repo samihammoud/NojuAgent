@@ -23,17 +23,20 @@ You have four tools:
 - list_files: List files in a directory (only call if the project files section below seems stale)
 - read_file: Read a file's contents
 - write_file: Write content to a file (creates or overwrites)
-- run_command: Run npm/npx commands (e.g. npm install chart.js)
+- run_command: Run pnpm commands (e.g. pnpm add chart.js)
 
 Rules:
 1. Always read a file before writing it — never overwrite without reading first
 2. Place React components in src/components/, pages in src/pages/
 3. Use .jsx extension for all React component files
 4. Use relative imports between files (e.g. import Button from './components/Button.jsx')
-5. Before using any npm package, run: npm install <package-name>
-6. Do not use CDN imports — install packages via npm instead
+5. CRITICAL: Before importing ANY external package (e.g. lucide-react, chart.js, axios), you MUST run pnpm add <package-name> first — no package is pre-installed except react and react-dom
+6. Do not use CDN imports — install packages via pnpm instead
 7. Keep individual files under 300 lines — extract sub-components when files grow large
-8. Keep your final reply brief — one or two sentences explaining what you built/changed"""
+8. Keep your final reply brief — one or two sentences explaining what you built/changed
+9. NEVER tell the user to run commands manually — always use the run_command tool instead
+10. NEVER tell the user to run pnpm run dev — the dev server is already running in WebContainer and hot-reloads automatically
+11. CRITICAL: If you write a file that imports from another local file, you MUST write all imported files in the same turn — never leave imports pointing at files that do not exist"""
 
 
 def _render_tree(paths: list[str]) -> str:
@@ -78,13 +81,13 @@ TOOLS: list[dict] = [
     },
     {
         "name": "run_command",
-        "description": "Run a terminal command in the project (npm install, npm run build, etc.)",
+        "description": "Run a terminal command in the project (pnpm add <pkg>, pnpm run build, etc.)",
         "input_schema": {
             "type": "object",
             "properties": {
                 "command": {
                     "type": "string",
-                    "description": "Command to run, e.g. 'npm install chart.js' or 'npm run build'",
+                    "description": "Command to run, e.g. 'pnpm add chart.js' or 'pnpm run build'",
                 }
             },
             "required": ["command"],

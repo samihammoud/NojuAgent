@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from app.db import create_project, list_projects, upsert_user
+from app.db import create_project, delete_project, list_projects, upsert_user
 
 router = APIRouter()
 
@@ -21,3 +21,9 @@ async def post_project(body: CreateProjectRequest):
     await upsert_user(body.user_id)
     project_id = await create_project(body.user_id, body.name)
     return {"project_id": project_id}
+
+
+@router.delete("/projects/{project_id}")
+async def remove_project(project_id: str):
+    await delete_project(project_id)
+    return {"ok": True}

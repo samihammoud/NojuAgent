@@ -93,6 +93,13 @@ async def list_paths(project_id: str) -> list[str]:
     return sorted(row["path"] for row in result.data)
 
 
+async def delete_project(project_id: str) -> None:
+    client = get_client()
+    client.table("messages").delete().eq("project_id", project_id).execute()
+    client.table("files").delete().eq("project_id", project_id).execute()
+    client.table("projects").delete().eq("id", project_id).execute()
+
+
 async def append_message(project_id: str, role: str, content) -> None:
     get_client().table("messages").insert(
         {"project_id": project_id, "role": role, "content": content}

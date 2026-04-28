@@ -1,5 +1,19 @@
 import type { FileSystemTree } from "@webcontainer/api";
 
+export function buildFileSystemTree(files: Record<string, string>): FileSystemTree {
+  const tree: FileSystemTree = {};
+  for (const [path, content] of Object.entries(files)) {
+    const parts = path.split("/");
+    let node = tree;
+    for (let i = 0; i < parts.length - 1; i++) {
+      if (!node[parts[i]]) node[parts[i]] = { directory: {} };
+      node = (node[parts[i]] as { directory: FileSystemTree }).directory;
+    }
+    node[parts[parts.length - 1]] = { file: { contents: content } };
+  }
+  return tree;
+}
+
 const packageJson = `{
   "name": "noju-app",
   "private": true,

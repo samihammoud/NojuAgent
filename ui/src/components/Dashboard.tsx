@@ -18,6 +18,13 @@ export default function Dashboard({ onSelectProject }: Props) {
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
   const [showInput, setShowInput] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+
+  async function deleteProject(projectId: string) {
+    await fetch(`/api/projects/${projectId}`, { method: "DELETE" });
+    setProjects((prev) => prev.filter((p) => p.id !== projectId));
+    setConfirmDelete(null);
+  }
 
   useEffect(() => {
     if (!userId) return;
@@ -151,37 +158,75 @@ export default function Dashboard({ onSelectProject }: Props) {
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {projects.map((p) => (
-                <button
+                <div
                   key={p.id}
-                  onClick={() => onSelectProject(p.id)}
                   style={{
                     display: "flex",
                     alignItems: "center",
-                    justifyContent: "space-between",
-                    padding: "14px 16px",
-                    background: "var(--surface)",
-                    border: "1px solid var(--border)",
-                    borderRadius: "var(--radius)",
-                    cursor: "pointer",
-                    textAlign: "left",
-                    transition: "border-color 0.15s",
-                    width: "100%",
+                    gap: 8,
                   }}
-                  onMouseEnter={(e) => (e.currentTarget.style.borderColor = "var(--border-2)")}
-                  onMouseLeave={(e) => (e.currentTarget.style.borderColor = "var(--border)")}
                 >
-                  <div>
-                    <div style={{ fontSize: 14, fontWeight: 500, color: "var(--text)", marginBottom: 3 }}>
-                      {p.name}
+                  <button
+                    onClick={() => onSelectProject(p.id)}
+                    style={{
+                      flex: 1,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "14px 16px",
+                      background: "var(--surface)",
+                      border: "1px solid var(--border)",
+                      borderRadius: "var(--radius)",
+                      cursor: "pointer",
+                      textAlign: "left",
+                      transition: "border-color 0.15s",
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.borderColor = "var(--border-2)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.borderColor = "var(--border)")}
+                  >
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 500, color: "var(--text)", marginBottom: 3 }}>
+                        {p.name}
+                      </div>
+                      <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                        {new Date(p.created_at).toLocaleDateString()}
+                      </div>
                     </div>
-                    <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                      {new Date(p.created_at).toLocaleDateString()}
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ color: "var(--text-muted)", flexShrink: 0 }}>
+                      <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+
+                  {confirmDelete === p.id ? (
+                    <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                      <button
+                        className="btn-ghost"
+                        style={{ fontSize: 12, color: "var(--text-muted)" }}
+                        onClick={() => setConfirmDelete(null)}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        className="btn-ghost"
+                        style={{ fontSize: 12, color: "#ef4444" }}
+                        onClick={() => deleteProject(p.id)}
+                      >
+                        Confirm
+                      </button>
                     </div>
-                  </div>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ color: "var(--text-muted)", flexShrink: 0 }}>
-                    <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </button>
+                  ) : (
+                    <button
+                      className="btn-ghost"
+                      style={{ flexShrink: 0, padding: "8px" }}
+                      onClick={() => setConfirmDelete(p.id)}
+                      title="Delete project"
+                    >
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" style={{ color: "var(--text-muted)" }}>
+                        <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
               ))}
             </div>
           )}

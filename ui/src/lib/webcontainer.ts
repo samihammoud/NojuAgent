@@ -1,9 +1,6 @@
 import { WebContainer } from "@webcontainer/api";
 import { previewFiles } from "./previewFiles";
 
-let instance: WebContainer | null = null;
-let ready: Promise<WebContainer> | null = null;
-
 // Resolved once server-ready fires — Preview reads this instead of registering
 // its own listener (which would miss the event if it mounts after server starts).
 let serverUrlResolve!: (url: string) => void;
@@ -18,7 +15,7 @@ const bootPhaseListeners = new Set<(phase: BootPhase) => void>();
 
 export function onBootPhaseChange(cb: (phase: BootPhase) => void): () => void {
   bootPhaseListeners.add(cb);
-  cb(currentBootPhase); // Emit current phase immediately to new subscriber
+  cb(currentBootPhase);
   return () => bootPhaseListeners.delete(cb);
 }
 
@@ -26,6 +23,9 @@ function setBootPhase(phase: BootPhase) {
   currentBootPhase = phase;
   bootPhaseListeners.forEach((cb) => cb(phase));
 }
+
+let instance: WebContainer | null = null;
+let ready: Promise<WebContainer> | null = null;
 
 export async function getWebContainer(): Promise<WebContainer> {
   if (instance) return instance;
@@ -41,26 +41,23 @@ export async function getWebContainer(): Promise<WebContainer> {
     await wc.fs.readFile(".__warmup", "utf-8");
     await wc.fs.rm(".__warmup");
 
-    // Resolve the singleton immediately so chat input is not blocked by install
+    // Resolve the singleton immediately so tools don't wait for install
     instance = wc;
 
-    // Install dependencies with pnpm (pre-installed in WebContainer, faster than npm)
     setBootPhase("installing");
     const installProcess = await wc.spawn("pnpm", ["install"]);
+    installProcess.output.pipeTo(new WritableStream({ write() {} }));
     const installExit = await Promise.race([
       installProcess.exit,
       new Promise<number>((resolve) => setTimeout(() => resolve(-1), 180_000)),
     ]);
-
     if (installExit !== 0) {
       setBootPhase("error");
       throw new Error(`pnpm install failed with exit code ${installExit}`);
     }
 
-    // Start Vite dev server
     setBootPhase("starting");
     wc.spawn("pnpm", ["run", "dev"]);
-
     wc.on("server-ready", (_port, url) => {
       serverUrlResolve(url);
       setBootPhase("ready");

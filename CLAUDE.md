@@ -33,9 +33,9 @@ backend/ (FastAPI + Python, port 8000)
 6. Frontend receives `turn_complete` → POSTs all current files to `POST /api/files` and assistant message to `POST /api/projects/{id}/messages`
 
 ### File persistence flow
-- **On project load:** frontend calls `GET /api/files?project_id=...` → mounts returned files into WebContainer
+- **On project load:** frontend calls `GET /api/files?project_id=...`. Extra packages (anything beyond react/react-dom/vite) are extracted from the saved `package.json` and installed via `pnpm add` *first*, then source files are written into the running WebContainer. `package.json` and `pnpm-lock.yaml` are never mounted directly — the default from `previewFiles` is always used for the initial `pnpm install`.
 - **During agent turn:** `write_file` tool calls execute immediately in WebContainer (agent loop unblocked)
-- **After turn_complete:** frontend POSTs snapshot of all open files to `POST /api/files` → Supabase upsert
+- **After turn_complete:** frontend reads `package.json` live from the WebContainer filesystem (not from `openFiles`, which misses `pnpm add` side-effects), merges it into the snapshot, then POSTs everything to `POST /api/files` → Supabase upsert
 - The WebSocket is not involved in file persistence at all
 
 ### Message persistence flow
@@ -82,6 +82,9 @@ VITE_CLERK_PUBLISHABLE_KEY=...
   - `truncate_history` — caps `self.messages` at `MAX_MESSAGES = 30`. Only cuts at plain-text user messages (turn boundaries) to avoid orphaning a `tool_result` from its `tool_use`.
 - **Dynamic system prompt with file tree.** `AgentSession` takes a `project_id` at construction. Before each API call, it runs `db.list_paths(project_id)` and appends `## Current project files\n- path1\n- path2 ...` to `SYSTEM_PROMPT_BASE`. This removes the "always call list_files first" rule — the agent already has the tree. `list_files` remains as a fallback tool. The tree is sourced from Supabase (stale within a turn since writes only persist on `turn_complete`), but the agent's own tool_use history covers files it created in the current turn.
 - **Debug logging.** Each API call's payload and response are appended as JSON to `backend/agent_debug.log` (line-buffered append). Watch `input_tokens` growth across turns to verify compaction — `<superseded>` markers in the payload confirm stale file content was stubbed.
+- **WebContainer boot is always eager and minimal.** `webcontainer.ts` calls `getWebContainer()` at module load — boot starts immediately with only the default `previewFiles` (react + react-dom). This keeps the "Installing dependencies" phase fast (~10–15s). Never run `pnpm install` against a project's full `package.json` on boot; the browser sandbox makes it too slow. Extra packages are restored on project load via targeted `pnpm add` calls instead.
+- **`pnpm add` is invisible to `openFiles`.** When the agent runs `pnpm add <pkg>` via `run_command`, WebContainer updates its internal `package.json` but that never goes through `write_file`. `openFiles` (and therefore the Supabase snapshot) would stay stale with the default `package.json` if not corrected. Fix: on `turn_complete`, read `package.json` directly from `wc.fs.readFile` before flushing to Supabase. This is the only place where `package.json` is explicitly synced.
+- **Package restore order on load matters.** Source files must be written into WebContainer *after* their packages are installed. Writing first causes Vite to immediately error on unresolved imports. The load sequence is: (1) `pnpm add` extra packages, (2) write source files.
 
 ## Database schema (Supabase)
 

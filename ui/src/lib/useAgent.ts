@@ -61,6 +61,18 @@ async function executeTool(
   }
 }
 
+const DEFAULT_PACKAGES = new Set(["react", "react-dom", "vite"]);
+
+function extraPackages(packageJson: string): string[] {
+  try {
+    const pkg = JSON.parse(packageJson) as { dependencies?: Record<string, string>; devDependencies?: Record<string, string> };
+    const all = { ...pkg.dependencies, ...pkg.devDependencies };
+    return Object.keys(all).filter((p) => !DEFAULT_PACKAGES.has(p));
+  } catch {
+    return [];
+  }
+}
+
 interface AgentOptions {
   initialMessages?: ChatMessage[];
   // onPersist is the callback for posting user and assistant messages to the DB
@@ -84,29 +96,38 @@ export function useAgent(
   // Always mirrors openFiles state so the wsRef.current.onmessage closure can read current files
   const openFilesRef = useRef<Record<string, string>>(defaultEditorFiles);
 
-  // Track WebContainer readiness
-  useEffect(() => {
-    getWebContainer().then(() => setWcReady(true));
-  }, []);
-
-  // Load persisted files from DB on mount and write them into WebContainer
+  // Fetch project files, wait for WebContainer, then write them in
   useEffect(() => {
     if (!projectId) return;
     (async () => {
       try {
         const res = await fetch(`/api/files?project_id=${projectId}`);
-        if (!res.ok) return;
-        const files = (await res.json()) as Record<string, string>;
-        if (!files || Object.keys(files).length === 0) return;
-        setOpenFiles((prev) => {
-          const next = { ...prev, ...files };
-          openFilesRef.current = next;
-          return next;
-        });
+        const files: Record<string, string> = res.ok ? (await res.json()) ?? {} : {};
         const wc = await getWebContainer();
-        for (const [path, content] of Object.entries(files)) {
+
+        // Install extra packages first so Vite never sees a broken import state
+        const savedPkg = files["package.json"];
+        if (savedPkg) {
+          const extras = extraPackages(savedPkg);
+          if (extras.length > 0) {
+            await toolRunCommand(wc, `pnpm add ${extras.join(" ")}`, 180_000);
+          }
+        }
+
+        // Write source files after packages are ready (skip manifests)
+        const writable = Object.entries(files).filter(
+          ([p]) => p !== "package.json" && p !== "pnpm-lock.yaml"
+        );
+        for (const [path, content] of writable) {
           await toolWriteFile(wc, path, content);
         }
+        if (writable.length > 0) {
+          const next = { ...defaultEditorFiles, ...Object.fromEntries(writable) };
+          openFilesRef.current = next;
+          setOpenFiles(next);
+        }
+
+        setWcReady(true);
       } catch (err) {
         console.error("[files] failed to load persisted files:", err);
       }
@@ -194,8 +215,13 @@ export function useAgent(
         //save assistant message to DB
         onPersist?.("assistant", msg.content as string);
 
-        // Flush all current files to DB
-        const snapshot = openFilesRef.current;
+        // Flush all current files to DB, including live package.json from WebContainer
+        // (pnpm add updates it in-container but never goes through write_file)
+        const snapshot = { ...openFilesRef.current };
+        try {
+          const wc = await getWebContainer();
+          snapshot["package.json"] = await wc.fs.readFile("package.json", "utf-8");
+        } catch {}
         if (Object.keys(snapshot).length > 0) {
           fetch("/api/files", {
             method: "POST",

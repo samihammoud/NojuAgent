@@ -1,66 +1,54 @@
 import { useEffect, useRef, useState } from "react";
-import { getWebContainer, serverUrlPromise, onBootPhaseChange, type BootPhase } from "../lib/webcontainer";
+import { onBootPhaseChange, onServerUrlChange, type BootPhase } from "../lib/webcontainer";
 
 type Status =
-  | { type: "booting" }
+  | { type: "idle" }
   | { type: "installing" }
   | { type: "starting" }
   | { type: "ready"; url: string }
   | { type: "error"; message: string };
 
-function phaseToStatus(phase: BootPhase): Status {
+function phaseToStatus(phase: BootPhase, url: string | null): Status {
   switch (phase) {
-    case "booting":    return { type: "booting" };
+    case "idle":       return { type: "idle" };
     case "installing": return { type: "installing" };
     case "starting":   return { type: "starting" };
+    case "ready":      return url ? { type: "ready", url } : { type: "starting" };
     case "error":      return { type: "error", message: "Boot failed" };
-    default:           return { type: "booting" };
   }
 }
 
 export default function Preview() {
-  const [status, setStatus] = useState<Status>({ type: "booting" });
+  const [status, setStatus] = useState<Status>({ type: "idle" });
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const urlRef = useRef("");
 
   useEffect(() => {
-    let cancelled = false;
+    let phase: BootPhase = "idle";
+    let url: string | null = null;
 
-    // Subscribe to boot phase changes for loading UX
-    const unsub = onBootPhaseChange((phase) => {
-      if (cancelled) return;
-      if (phase !== "ready") {
-        setStatus(phaseToStatus(phase));
-      }
+    const recompute = () => setStatus(phaseToStatus(phase, url));
+
+    const unsubPhase = onBootPhaseChange((p) => {
+      phase = p;
+      recompute();
     });
 
-    async function boot() {
-      try {
-        await getWebContainer();
-        if (cancelled) return;
+    const unsubUrl = onServerUrlChange((u) => {
+      url = u;
+      if (u) urlRef.current = u;
+      recompute();
+    });
 
-        const url = await serverUrlPromise;
-        if (cancelled) return;
-
-        urlRef.current = url;
-        setStatus({ type: "ready", url });
-      } catch (err) {
-        if (!cancelled) {
-          setStatus({ type: "error", message: String(err) });
-        }
-      }
-    }
-
-    boot();
     return () => {
-      cancelled = true;
-      unsub();
+      unsubPhase();
+      unsubUrl();
     };
   }, []);
 
   function statusLabel(): string {
     switch (status.type) {
-      case "booting":    return "Starting WebContainer...";
+      case "idle":       return "Waiting for project...";
       case "installing": return "Installing dependencies...";
       case "starting":   return "Starting dev server...";
       default:           return "Loading...";
@@ -69,9 +57,9 @@ export default function Preview() {
 
   function statusSub(): string {
     switch (status.type) {
-      case "booting":    return "Booting isolated runtime";
-      case "installing": return "Running npm install";
-      case "starting":   return "Running npm run dev (Vite)";
+      case "idle":       return "Pick a project to begin";
+      case "installing": return "Running pnpm install";
+      case "starting":   return "Running pnpm run dev (Vite)";
       default:           return "";
     }
   }

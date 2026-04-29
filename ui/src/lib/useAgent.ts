@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { WebContainer } from "@webcontainer/api";
 import { useAuth } from "@clerk/clerk-react";
-import { getWebContainer } from "./webcontainer";
-import { defaultEditorFiles, previewFiles } from "./previewFiles";
+import { getWebContainer, loadProject } from "./webcontainer";
+import { defaultEditorFiles } from "./previewFiles";
 import {
   toolListFiles,
   toolReadFile,
@@ -94,47 +94,23 @@ export function useAgent(
   const [activeFile, setActiveFile] = useState<string>("src/App.jsx");
   const wsRef = useRef<WebSocket | null>(null);
 
-  // Fetch project files, wait for WebContainer, then write them in
+  // Fetch project files, mount + install + start Vite. Empty projects get
+  // the default template (which includes vite in devDependencies).
   useEffect(() => {
     if (!projectId) return;
     setWcReady(false);
     (async () => {
       try {
         const res = await fetch(`/api/files?project_id=${projectId}`);
-        const files: Record<string, string> = res.ok ? (await res.json()) ?? {} : {};
-        const wc = await getWebContainer();
+        const fetched: Record<string, string> = res.ok ? (await res.json()) ?? {} : {};
+        const files = Object.keys(fetched).length === 0 ? defaultEditorFiles : fetched;
 
-        // Reset src/ to the default baseline before applying project files.
-        // Without this, switching to an empty project (or any project missing
-        // files the previous one had) leaves Vite serving stale source from
-        // the old project — the iframe stays stuck on the wrong content.
-        // Single atomic mount minimizes Vite HMR thrash.
-        await wc.fs.rm("src", { recursive: true }).catch(() => {});
-        await wc.mount({ src: previewFiles.src });
+        await loadProject(files);
 
-        // Restore the saved package.json + lockfile first, then run pnpm
-        // install to sync node_modules. With the lockfile present pnpm skips
-        // version resolution entirely (no registry metadata fetches), making
-        // installs much faster on reload. Source files are written after so
-        // Vite never sees an unresolved import.
-        if (files["package.json"]) {
-          await toolWriteFile(wc, "package.json", files["package.json"]);
-          if (files["pnpm-lock.yaml"]) {
-            await toolWriteFile(wc, "pnpm-lock.yaml", files["pnpm-lock.yaml"]);
-          }
-          await toolRunCommand(wc, "pnpm install", 180_000);
-        }
-
-        for (const [path, content] of Object.entries(files)) {
-          if (path === "package.json" || path === "pnpm-lock.yaml") continue;
-          await toolWriteFile(wc, path, content);
-        }
-        // Sync editor cache from the live FS — single source of truth
-        setOpenFiles(await snapshotFs(wc));
-
+        setOpenFiles(files);
         setWcReady(true);
       } catch (err) {
-        console.error("[files] failed to load persisted files:", err);
+        console.error("[files] failed to load project:", err);
       }
     })();
   }, [projectId]);

@@ -66,11 +66,9 @@ async function snapshotFs(wc: WebContainer): Promise<Record<string, string>> {
   const { files } = JSON.parse(await toolListFiles(wc, ".")) as { files: string[] };
   const snapshot: Record<string, string> = {};
   await Promise.all(
-    files
-      .filter((p) => p !== "pnpm-lock.yaml")
-      .map(async (p) => {
-        snapshot[p] = await wc.fs.readFile(p, "utf-8");
-      }),
+    files.map(async (p) => {
+      snapshot[p] = await wc.fs.readFile(p, "utf-8");
+    }),
   );
   return snapshot;
 }
@@ -99,6 +97,7 @@ export function useAgent(
   // Fetch project files, wait for WebContainer, then write them in
   useEffect(() => {
     if (!projectId) return;
+    setWcReady(false);
     (async () => {
       try {
         const res = await fetch(`/api/files?project_id=${projectId}`);
@@ -113,16 +112,21 @@ export function useAgent(
         await wc.fs.rm("src", { recursive: true }).catch(() => {});
         await wc.mount({ src: previewFiles.src });
 
-        // Restore the saved package.json first, then run pnpm install to sync
-        // node_modules. Source files are written after — Vite never sees an
-        // unresolved import because all deps are already in node_modules.
+        // Restore the saved package.json + lockfile first, then run pnpm
+        // install to sync node_modules. With the lockfile present pnpm skips
+        // version resolution entirely (no registry metadata fetches), making
+        // installs much faster on reload. Source files are written after so
+        // Vite never sees an unresolved import.
         if (files["package.json"]) {
           await toolWriteFile(wc, "package.json", files["package.json"]);
+          if (files["pnpm-lock.yaml"]) {
+            await toolWriteFile(wc, "pnpm-lock.yaml", files["pnpm-lock.yaml"]);
+          }
           await toolRunCommand(wc, "pnpm install", 180_000);
         }
 
         for (const [path, content] of Object.entries(files)) {
-          if (path === "package.json") continue;
+          if (path === "package.json" || path === "pnpm-lock.yaml") continue;
           await toolWriteFile(wc, path, content);
         }
         // Sync editor cache from the live FS — single source of truth
@@ -136,6 +140,11 @@ export function useAgent(
   }, [projectId]);
 
   useEffect(() => {
+    // Wait for WebContainer to be populated before opening the WS — otherwise
+    // a long initial pnpm install leaves an idle WS open for 30-60s, which
+    // dev proxies (Vite, etc.) can drop.
+    if (!wcReady) return;
+
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const uid = userId ?? "anonymous";
     const ws = new WebSocket(
@@ -256,7 +265,7 @@ export function useAgent(
       }
       wsRef.current = null;
     };
-  }, [userId, projectId]);
+  }, [userId, projectId, wcReady]);
 
   async function onLoadFile(path: string): Promise<string> {
     if (openFiles[path] !== undefined) return openFiles[path];

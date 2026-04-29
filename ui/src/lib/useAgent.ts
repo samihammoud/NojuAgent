@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { WebContainer } from "@webcontainer/api";
 import { useAuth } from "@clerk/clerk-react";
 import { getWebContainer } from "./webcontainer";
-import { defaultEditorFiles } from "./previewFiles";
+import { defaultEditorFiles, previewFiles } from "./previewFiles";
 import {
   toolListFiles,
   toolReadFile,
@@ -104,6 +104,14 @@ export function useAgent(
         const res = await fetch(`/api/files?project_id=${projectId}`);
         const files: Record<string, string> = res.ok ? (await res.json()) ?? {} : {};
         const wc = await getWebContainer();
+
+        // Reset src/ to the default baseline before applying project files.
+        // Without this, switching to an empty project (or any project missing
+        // files the previous one had) leaves Vite serving stale source from
+        // the old project — the iframe stays stuck on the wrong content.
+        // Single atomic mount minimizes Vite HMR thrash.
+        await wc.fs.rm("src", { recursive: true }).catch(() => {});
+        await wc.mount({ src: previewFiles.src });
 
         // Restore the saved package.json first, then run pnpm install to sync
         // node_modules. Source files are written after — Vite never sees an
